@@ -1,0 +1,14 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Key Project Files
+
+This rule highlights important configuration and entry point files for the ELI5 Flutter project.
+
+- **Dependencies & Metadata**: Project dependencies, Flutter version, and other metadata are defined in [pubspec.yaml](mdc:pubspec.yaml).
+- **Main Entry Point**: The primary application code starts in [lib/main.dart](mdc:lib/main.dart).
+- **Static Analysis**: Linting and analysis rules are configured in [analysis_options.yaml](mdc:analysis_options.yaml).
+- **Project Overview**: General information about the project can be found in the [README.md](mdc:README.md).
+

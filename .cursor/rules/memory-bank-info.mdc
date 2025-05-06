@@ -1,0 +1,16 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Memory Bank Information
+
+This directory contains documents detailing the project's context, planning, and progress.
+
+- **Overview**: [projectOverview.md](mdc:eli5/memory-bank/projectOverview.md) provides a high-level summary.
+- **Implementation Plan**: Details are in [implementationPlan.md](mdc:eli5/memory-bank/implementationPlan.md).
+- **Active Context**: Current focus is described in [activeContext.md](mdc:eli5/memory-bank/activeContext.md).
+- **Progress**: Tracked in [progress.md](mdc:eli5/memory-bank/progress.md).
+- **Brief**: Original project requirements are in [projectbrief.md](mdc:eli5/memory-bank/projectbrief.md).
+- **Product Context**: Broader product goals are in [productContext.md](mdc:eli5/memory-bank/productContext.md).
+
