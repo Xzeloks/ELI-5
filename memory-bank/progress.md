@@ -10,7 +10,21 @@
     *   History screen for viewing and clearing entries.
     *   Refactored core logic into `OpenAIService` and `ContentFetcherService`.
     *   SnackBar error notifications.
-*   **What's Left:** Further features (e.g., advanced settings, UI polish), further refactoring.
+    *   **Chat Functionality MVP Complete:** Conversational chat with text, URL, and YouTube video processing.
+    *   **Supabase Authentication Complete:** Login, Sign Up, Logout flow implemented with AuthGate.
+    *   **Chat History Persistence MVP Complete:** Saving sessions/messages to Supabase, loading sessions via Drawer.
+    *   **Chat History UX Refinement:** Added active session highlighting.
+    *   **Chat History Management:** Added session deletion.
+*   **What's Next / To Do:**
+    *   **Implement Monetization (RevenueCat) - In Progress:**
+        *   Google Play Console setup & verifications pending.
+        *   RevenueCat dashboard configuration in progress.
+        *   SDK added to Flutter project.
+    *   Refine Chat History UX (e.g., delete option).
+    *   Implement API Key Security (Proxy via Supabase Edge Function).
+    *   UI Polish & UX Improvements.
+    *   Advanced settings (e.g., choosing different GPT models, tone of simplification).
+*   **What's Left:** Monetization, API Key Security (Proxy), advanced settings, UI polish & refinements, further refactoring.
 *   **Known Issues:**
     *   Requires manual creation/update of `.env` file.
     *   Basic HTML parsing for generic URLs (might miss content or grab extra).

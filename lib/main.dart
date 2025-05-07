@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Import for Clipboard
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // Added for Riverpod
 // import 'package:flutter/foundation.dart'; // REMOVED - Unnecessary
 import 'dart:async'; // Added for Future
 import 'dart:io'; // Import for Platform environment
@@ -9,7 +10,11 @@ import '../services/history_service.dart'; // Import HistoryService
 import '../services/openai_service.dart';       // Import OpenAI Service
 import '../services/content_fetcher_service.dart'; // Import Content Fetcher Service
 import '../screens/history_screen.dart'; // Import HistoryScreen
+// import '../screens/auth/login_screen.dart'; // Removed unused import
 import 'package:youtube_explode_dart/youtube_explode_dart.dart'; // Needed for _yt
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
+import '../widgets/auth_gate.dart'; // Import AuthGate
+import 'package:purchases_flutter/purchases_flutter.dart'; // Import RevenueCat Purchases
 
 Future<void> main() async {
   // Ensure Flutter bindings are initialized before using plugins
@@ -26,8 +31,41 @@ Future<void> main() async {
     // Handle the error appropriately in a real app
     // Maybe show a message to the user or exit
   }
-  runApp(const MyApp());
+
+  // Initialize Supabase
+  // IMPORTANT: Replace with your actual Supabase URL and Anon Key
+  // Consider using flutter_dotenv for these as well for better security
+  await Supabase.initialize(
+    url: 'https://dhztoureixsskctbpovk.supabase.co', // Replace with your Supabase project URL
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRoenRvdXJlaXhzc2tjdGJwb3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY1MzQ4MTgsImV4cCI6MjA2MjExMDgxOH0.n1R4Mwj2l0FICRtLG76J0Y8f_5DLhl4MaBuxePva5qE', // Replace with your Supabase anon key
+  );
+
+  // Initialize RevenueCat Purchases
+  // IMPORTANT: Replace with your actual RevenueCat API keys from your RevenueCat dashboard
+  // You get these after setting up your app (Apple & Google) in RevenueCat.
+  // Consider using flutter_dotenv for these keys as well.
+  PurchasesConfiguration configuration;
+  if (Platform.isIOS) {
+    configuration = PurchasesConfiguration("YOUR_REVENUECAT_APPLE_API_KEY"); // Placeholder
+  } else if (Platform.isAndroid) {
+    configuration = PurchasesConfiguration("YOUR_REVENUECAT_GOOGLE_API_KEY"); // Placeholder
+  } else {
+    // Fallback or error for unsupported platforms if necessary
+    // For now, let's assume we might need a generic key or handle error
+    // This part might need adjustment based on how RevenueCat handles other platforms or if you only target mobile.
+    configuration = PurchasesConfiguration("YOUR_REVENUECAT_FALLBACK_API_KEY_IF_ANY"); // Placeholder
+  }
+  await Purchases.configure(configuration);
+  // Optional: Set up a listener for purchaser info updates
+  // Purchases.addPurchaserInfoUpdateListener((purchaserInfo) { 
+  //   // handle purchaser info updates 
+  // });
+
+  runApp(const ProviderScope(child: MyApp())); // Wrapped MyApp with ProviderScope
 }
+
+// Supabase client instance (can be accessed globally or via Riverpod provider)
+// final supabase = Supabase.instance.client;
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -40,7 +78,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueAccent),
         useMaterial3: true,
       ),
-      home: const Eli5Screen(),
+      home: const AuthGate(), // Changed to AuthGate
     );
   }
 }
