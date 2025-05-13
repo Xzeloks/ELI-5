@@ -4,24 +4,30 @@ This privacy policy applies to the ELI-5 app (hereby referred to as "Application
 
 **Information Collection and Use**
 
-The Application collects information when you download and use it. This information may include information such as
+The Application collects information when you download and use it. This information may include:
 
-*   Your device's Internet Protocol address (e.g. IP address)
-*   The pages of the Application that you visit, the time and date of your visit, the time spent on those pages
-*   The time spent on the Application
-*   The operating system you use on your mobile device
+*   **Device and Connection Information:** Your device's Internet Protocol (IP) address (which may be used to infer your approximate geographical location), operating system, device type, and connection details.
+*   **Usage Data:** Information about how you interact with the Application, such as the pages or features you access, the time and date of your visit, the time spent on those pages/features, and other interaction data.
 
-The Application does not gather precise information about the location of your mobile device.
+**Location Data:**
+The Application **does not** actively collect or track precise GPS location information from your mobile device. However, as mentioned above, we may infer your approximate geographical location (e.g., city or region) from your IP address for purposes such as analytics, service optimization, and to comply with regional regulations.
 
-The Application collects your device's location, which helps the Service Provider determine your approximate geographical location and make use of in below ways:
+**Personally Identifiable Information (PII) You Provide:**
+In addition to automatically collected information, we may collect PII that you voluntarily provide to us. This may include:
 
-*   Geolocation Services: The Service Provider utilizes location data to provide features such as personalized content, relevant recommendations, and location-based services.
-*   Analytics and Improvements: Aggregated and anonymized location data helps the Service Provider to analyze user behavior, identify trends, and improve the overall performance and functionality of the Application.
-*   Third-Party Services: Periodically, the Service Provider may transmit anonymized location data to external services. These services assist them in enhancing the Application and optimizing their offerings.
+*   **Account Information:** If you create an account with the Application, we may collect information such as your email address, a unique user identifier, and any other information you provide during account registration.
+*   **User-Generated Content:** We may collect and store the content you create or submit through the Application, such as the questions you ask and the interactions you have with the AI service, if this content is linked to your account or device.
+*   **Communications:** If you contact us directly (e.g., for support), we may collect your name, email address, and the contents of your communications.
 
-The Service Provider may use the information you provided to contact you from time to time to provide you with important information, required notices and marketing promotions.
-
-For a better experience, while using the Application, the Service Provider may require you to provide us with certain personally identifiable information, including but not limited to Ahen Yağan. The information that the Service Provider request will be retained by them and used as described in this privacy policy.
+The Service Provider may use the information collected (both automatically and provided by you) to:
+*   Provide, operate, and maintain the Application.
+*   Improve, personalize, and expand the Application.
+*   Understand and analyze how you use the Application.
+*   Develop new products, services, features, and functionality.
+*   Communicate with you, either directly or through one of our partners, including for customer service, to provide you with updates and other information relating to the Application, and for marketing and promotional purposes (where permitted by law and with your consent, if required).
+*   Process your transactions (e.g., subscriptions via RevenueCat).
+*   Detect and prevent fraud and security issues.
+*   Comply with legal obligations.
 
 **Third Party Access**
 
