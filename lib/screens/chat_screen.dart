@@ -1,6 +1,7 @@
 import 'package:eli5/providers/chat_provider.dart';
 import 'package:eli5/widgets/chat_message_bubble.dart';
 import 'package:eli5/models/chat_message.dart'; // Import ChatMessage and ChatMessageSender
+import 'package:eli5/models/simplification_style.dart'; // ADDED import
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // Import dotenv
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,6 +50,107 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // Method to show style explanations dialog
+  Future<void> _showStyleExplanationsDialog(BuildContext context) {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Simplification Styles'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: SimplificationStyle.values.map((style) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        displayStringForSimplificationStyle(style),
+                        style: Theme.of(dialogContext).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4.0),
+                      Text(explanationForSimplificationStyle(style)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Got it!'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Helper method to build the style selector
+  Widget _buildStyleSelector(BuildContext context, WidgetRef ref) {
+    final selectedStyle = ref.watch(chatProvider.select((cs) => cs.selectedStyle));
+    final chatNotifier = ref.read(chatProvider.notifier);
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Distribute space
+        children: [
+          // This Row contains the ChoiceChips
+          Row(
+            mainAxisSize: MainAxisSize.min, // Crucial for keeping chips compact
+            children: SimplificationStyle.values.map((style) {
+              final bool isSelected = selectedStyle == style;
+              return Padding(
+                // Add spacing to the right of each chip, except the last one
+                padding: EdgeInsets.only(right: style != SimplificationStyle.values.last ? 4.0 : 0.0),
+                child: ChoiceChip(
+                  label: Text(displayStringForSimplificationStyle(style)),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    if (selected) {
+                      chatNotifier.setSelectedStyle(style);
+                    }
+                  },
+                  backgroundColor: isSelected ? theme.colorScheme.primary.withOpacity(0.15) : theme.chipTheme.backgroundColor,
+                  selectedColor: theme.colorScheme.primary,
+                  labelStyle: TextStyle(
+                    color: isSelected ? theme.colorScheme.onPrimary : theme.chipTheme.labelStyle?.color,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  shape: StadiumBorder(
+                    side: BorderSide(
+                      color: isSelected ? theme.colorScheme.primary : theme.dividerColor.withOpacity(0.5),
+                      width: 1.0,
+                    ),
+                  ),
+                  elevation: isSelected ? 2.0 : 0.0,
+                  pressElevation: 4.0,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+                ),
+              );
+            }).toList(),
+          ),
+          IconButton(
+            icon: Icon(FeatherIcons.info, color: theme.iconTheme.color?.withOpacity(0.7)),
+            tooltip: 'About simplification styles',
+            padding: EdgeInsets.zero, // Minimal padding for the icon button
+            constraints: const BoxConstraints(),
+            onPressed: () {
+              _showStyleExplanationsDialog(context);
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatDateSeparator(DateTime date) {
@@ -396,6 +498,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // Pass the state's controller to the input bar builder
     final chatInputBarWidget = _buildChatInputBar(context, ref, messageController, isAiResponding, isProcessingImage, sendMessage);
     final processingIndicatorsWidget = _buildProcessingIndicators(context, isAiResponding, isProcessingImage);
+    final styleSelectorWidget = _buildStyleSelector(context, ref); // ADDED: Create the style selector widget
 
     // Scroll to bottom when messages change and we are not already at the bottom
     // (or close to it) to avoid jumping while user is scrolling up.
@@ -438,6 +541,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                _buildGreeting(context, ref),
                                Text("Ready to simplify something complex?", style: Theme.of(context).textTheme.bodyLarge?.copyWith( color: Theme.of(context).colorScheme.onSurfaceVariant, ) ),
                                const SizedBox(height: 16),
+                               styleSelectorWidget,
                                chatInputBarWidget,
                                const SizedBox(height: 24),
                                Text("Recent Chats", style: Theme.of(context).textTheme.titleMedium?.copyWith( color: Theme.of(context).colorScheme.onBackground.withAlpha((255 * 0.85).round()), fontWeight: FontWeight.w600,), textAlign: TextAlign.center, ),
@@ -481,6 +585,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                      },
                    ) ),
                    processingIndicatorsWidget, 
+                   styleSelectorWidget, // ADDED: Style selector when messages are present
                    chatInputBarWidget, 
                 ],
                 // Add SizedBox for bottom padding to avoid overlap with CurvedNavigationBar
@@ -543,7 +648,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             );
           },
            separatorBuilder: (context, index) { // CHANGED to SizedBox for spacing
-            return const SizedBox(height: 12.0); // Just add vertical space
+            return const SizedBox(height: 16.0); // INCREASED height from 12.0 to 16.0
            },
         );
       },

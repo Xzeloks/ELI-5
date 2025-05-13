@@ -86,8 +86,8 @@ class _AppShellState extends ConsumerState<AppShell> {
           index: selectedPageIndex, 
           height: 65.0, 
           items: navBarItems,
-          color: AppColors.primaryDarkPurple, // Solid color for the bar
-          buttonBackgroundColor: AppColors.kopyaPurple, // Solid color behind selected icon
+          color: AppColors.kopyaPurple, // USING AppColors.kopyaPurple for the bar
+          buttonBackgroundColor: AppColors.kopyaPurple, // This was already kopyaPurple
           backgroundColor: Colors.transparent, // Make the area behind the curve transparent
           animationCurve: Curves.easeInOut,
           animationDuration: const Duration(milliseconds: 400),

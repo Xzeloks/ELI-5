@@ -261,10 +261,9 @@ class HistoryListScreen extends ConsumerWidget {
                     groupSeparatorBuilder: (DateTime groupKey) { // Changed from String groupName to DateTime groupKey
                       final String groupName = _getGroupName(groupKey); // Get display name from key
                       return Material( // Wrap with Material for elevation and background
-                        elevation: 1.0, // Add a slight elevation for shadow
                         color: Theme.of(context).scaffoldBackgroundColor, // Match scaffold background
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                          padding: const EdgeInsets.fromLTRB(16.0, 18.0, 16.0, 24.0), // CHANGED: Increased bottom padding from 18.0 to 24.0
                           color: Colors.transparent, // Container is transparent to show Material color
                           child: Row(
                             children: <Widget>[

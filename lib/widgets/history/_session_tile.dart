@@ -116,6 +116,14 @@ class SessionTileWidget extends ConsumerWidget {
         ? theme.colorScheme.primary.withOpacity(0.15) // Highlight color for selected items
         : AppColors.inputFillDark;
 
+    final List<BoxShadow> tileBoxShadow = [
+      BoxShadow(
+        color: AppColors.kopyaPurple.withOpacity(0.20),
+        blurRadius: 6.0,
+        spreadRadius: 0.0,
+        offset: const Offset(0, 3),
+      ),
+    ];
 
     Widget tileContent = ListTile(
       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: dense ? 6 : 10),
@@ -197,28 +205,29 @@ class SessionTileWidget extends ConsumerWidget {
     );
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: dense ? 4 : 8), // Reduced vertical padding a bit
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        color: cardBackgroundColor,
-        margin: EdgeInsets.zero,
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: dense ? 4 : 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cardBackgroundColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: tileBoxShadow,
+        ),
         clipBehavior: Clip.antiAlias,
-        child: AnimatedContainer( // Keep AnimatedContainer for border and future animations
+        child: AnimatedContainer( 
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: isActiveChatSession && !isMultiSelectActive && !isThisTileSelected // Only show active border if not in multi-select and not selected
+              borderRadius: BorderRadius.circular(16), // Keep borderRadius for the border
+              border: isActiveChatSession && !isMultiSelectActive && !isThisTileSelected 
                   ? Border.all(color: theme.colorScheme.primary.withOpacity(0.5), width: 1.5)
                   : null,
             ),
             child: isMultiSelectActive
-                ? tileContent // If in multi-select, Slidable is disabled
+                ? tileContent 
                 : Slidable(
-                    key: ValueKey(sessionId), // Ensure Slidable has its key
+                    key: ValueKey(sessionId), 
                     endActionPane: ActionPane(
                       motion: const StretchMotion(),
-                      extentRatio: dense ? 0.70 : 0.75, // Conditionally reduce extentRatio for dense tiles
+                      extentRatio: dense ? 0.70 : 0.75, 
                       children: [
                         SlidableAction(
                           onPressed: (context) async {
@@ -258,17 +267,16 @@ class SessionTileWidget extends ConsumerWidget {
                               }
                             }
                           },
-                          backgroundColor: (isStarred ? Colors.amber[700] : Colors.grey[600]) ?? Colors.grey,
+                          backgroundColor: Colors.orangeAccent, // Keep this color
                           foregroundColor: Colors.white,
-                          icon: isStarred ? Icons.star_rounded : Icons.star_border_rounded,
+                          icon: isStarred ? Icons.star_rounded : Icons.star_border_rounded, // Reverted to correct icons
                           label: isStarred ? 'Unstar' : 'Star',
                           borderRadius: BorderRadius.circular(16),
                           padding: EdgeInsets.zero,
                         ),
+                        const SizedBox(width: 1.0), 
                         SlidableAction(
-                          onPressed: (context) {
-                            onDeleteRequested();
-                          },
+                          onPressed: (context) => onDeleteRequested(), 
                           backgroundColor: Colors.redAccent,
                           foregroundColor: Colors.white,
                           icon: FeatherIcons.trash2,
@@ -278,9 +286,9 @@ class SessionTileWidget extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    child: tileContent, // The ListTile goes here
+                    child: tileContent, 
                   ),
-          ),
+        ),
       ),
     );
   }

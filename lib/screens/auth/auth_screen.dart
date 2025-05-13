@@ -58,6 +58,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                     borderRadius: BorderRadius.circular(25.0),
                     color: theme.colorScheme.primary, // Accent color for indicator
                   ),
+                  indicatorColor: Colors.transparent,
+                  indicatorWeight: 0.0,
+                  dividerColor: Colors.transparent,
                   labelColor: theme.colorScheme.onPrimary, // Text color for selected tab
                   unselectedLabelColor: theme.colorScheme.onSurfaceVariant, // Text color for unselected tabs
                   labelStyle: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold), // Adjust style as needed

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:eli5/main.dart'; // Import AppColors
 
 // Custom Clipper for the chat bubble tail
 class BubbleTailClipper extends CustomClipper<Path> {
@@ -100,11 +101,17 @@ class ModernChatBubble extends StatelessWidget {
         color: bubbleColor,
         borderRadius: bubbleRadius,
         boxShadow: [
+          // BoxShadow(
+          //   color: Colors.black.withOpacity(0.05),
+          //   spreadRadius: 1,
+          //   blurRadius: 3,
+          //   offset: const Offset(0, 1),
+          // ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: const Offset(0, 1),
+            color: AppColors.kopyaPurple.withOpacity(0.35), // Adjusted opacity for subtlety
+            blurRadius: 6.0,
+            spreadRadius: -1.0,
+            offset: const Offset(0, 2), // Slight downward offset
           ),
         ],
       ),

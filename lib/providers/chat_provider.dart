@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eli5/models/chat_message.dart';
+import 'package:eli5/models/simplification_style.dart'; // ADDED import
 import 'package:eli5/services/openai_service.dart'; // Import OpenAIService
 import 'package:eli5/services/content_fetcher_service.dart'; // Import ContentFetcherService
 import 'package:eli5/services/chat_db_service.dart'; // Import ChatDbService
@@ -89,6 +90,7 @@ class ChatState {
   final bool isProcessingImage; // Added for OCR/Image processing state
   final String? errorMessage;
   final String? currentSessionId; // Added to store current session ID
+  final SimplificationStyle selectedStyle; // ADDED: For selected simplification style
 
   ChatState({
     this.messages = const [],
@@ -96,6 +98,7 @@ class ChatState {
     this.isProcessingImage = false, // Default to false
     this.errorMessage,
     this.currentSessionId,
+    this.selectedStyle = SimplificationStyle.eli5, // ADDED: Default to ELI5
   });
 
   ChatState copyWith({
@@ -106,6 +109,7 @@ class ChatState {
     bool clearErrorMessage = false,
     String? currentSessionId, // For updating session ID
     bool clearCurrentSessionId = false, // For clearing session ID (e.g., new chat)
+    SimplificationStyle? selectedStyle, // ADDED parameter
   }) {
     return ChatState(
       messages: messages ?? this.messages,
@@ -113,6 +117,7 @@ class ChatState {
       isProcessingImage: isProcessingImage ?? this.isProcessingImage, // Added
       errorMessage: clearErrorMessage ? null : errorMessage ?? this.errorMessage,
       currentSessionId: clearCurrentSessionId ? null : currentSessionId ?? this.currentSessionId,
+      selectedStyle: selectedStyle ?? this.selectedStyle, // ADDED assignment
     );
   }
 }
@@ -140,6 +145,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
     );
     state = state.copyWith(messages: [...state.messages, displayMessage]);
     // This message is for immediate UI feedback and is not saved to DB here.
+  }
+
+  // ADDED: Method to update the selected simplification style
+  void setSelectedStyle(SimplificationStyle style) {
+    state = state.copyWith(selectedStyle: style);
   }
 
   Future<void> sendMessageAndGetResponse(String rawInputText, String apiKey, {bool isFromOcr = false}) async {
@@ -226,12 +236,18 @@ class ChatNotifier extends StateNotifier<ChatState> {
          }
       }
       // If isFromOcr is true, contentForAI is already the extracted text.
-      // The system prompt in OpenAIService will guide ELI5.
+      // The system prompt in OpenAIService will guide the selected style.
+
+      // DEBUG: Print length of contentForAI if it was a URL, to monitor for very long inputs
+      if (determinedInputType == InputType.url) {
+        print("[ChatProvider] Length of contentForAI (URL content) before sending to OpenAI: ${contentForAI.length} characters.");
+      }
 
       final aiResponseText = await _openAIService.getChatResponse(
         state.messages, 
         apiKey,
-        effectiveLastUserMessageContent: contentForAI 
+        effectiveLastUserMessageContent: contentForAI,
+        style: state.selectedStyle, // UNCOMMENTED: Pass the selected style
       );
 
       final aiMessage = ChatMessage(
