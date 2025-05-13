@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:eli5/screens/auth/login_screen.dart';
-import 'package:eli5/screens/chat_screen.dart';
+// import 'package:eli5/screens/auth/login_screen.dart'; // No longer needed
+import 'package:eli5/screens/auth/auth_screen.dart'; // Import the new AuthScreen
+// import 'package:eli5/screens/chat_screen.dart';
+import 'package:eli5/screens/app_shell.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -22,11 +24,12 @@ class AuthGate extends StatelessWidget {
         final session = snapshot.data?.session;
 
         if (session != null) {
-          // User is logged in, show ChatScreen
-          return const ChatScreen();
+          // User is logged in, show AppShell (which defaults to ChatScreen)
+          return AppShell();
         } else {
           // User is not logged in, show LoginScreen
-          return const LoginScreen();
+          // return const LoginScreen();
+          return const AuthScreen(); // Navigate to the new AuthScreen
         }
       },
     );

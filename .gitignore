@@ -42,6 +42,9 @@ app.*.map.json
 # Environment variables
 .env
 
+# Keystore files
+android/key.properties
+
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile

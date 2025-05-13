@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // Import Riverpod
+import 'package:flutter_feather_icons/flutter_feather_icons.dart'; // Import Feather Icons
+// import 'auth_screen.dart'; // Import for tab navigation maybe later
 // import 'login_screen.dart'; // Will be needed for navigation
 
 // Get a reference to the Supabase client
 final supabase = Supabase.instance.client;
 
-class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({super.key});
+// --- Sign Up Form Widget ---
+class SignUpForm extends ConsumerStatefulWidget {
+  const SignUpForm({super.key});
 
   @override
-  State<SignUpScreen> createState() => _SignUpScreenState();
+  ConsumerState<SignUpForm> createState() => _SignUpFormState();
 }
 
-class _SignUpScreenState extends State<SignUpScreen> {
+class _SignUpFormState extends ConsumerState<SignUpForm> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  // Optional: Add a confirm password field if desired
-  // final _confirmPasswordController = TextEditingController(); 
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   Future<void> _signUp() async {
     if (_formKey.currentState!.validate()) {
@@ -26,26 +29,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
         _isLoading = true;
       });
       try {
-        final response = await supabase.auth.signUp(
+        await supabase.auth.signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
 
         if (mounted) {
-          if (response.user != null) {
-             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Sign up successful! Please check your email to confirm your account.')),
-            );
-            // Optionally, navigate to login screen or show a specific "check email" page
-            if (Navigator.canPop(context)) Navigator.pop(context); // Go back to login
-          } else {
-            // This case might occur if email confirmation is disabled and sign-up is immediate,
-            // or if there's an issue not caught as an error but user is null.
-             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Sign up completed, but user data is not immediately available. Please try logging in.')),
-            );
-            if (Navigator.canPop(context)) Navigator.pop(context);
-          }
+          // Show confirmation message regardless of immediate user data availability
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Sign up successful! Please check your email to confirm your account.')),
+          );
+          // Optionally, switch to Login tab or navigate differently
+          // For now, user needs to manually switch or check email and then log in.
         }
       } on AuthException catch (e) {
         if (mounted) {
@@ -72,123 +67,162 @@ class _SignUpScreenState extends State<SignUpScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    // if (_confirmPasswordController != null) _confirmPasswordController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sign Up'),
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Text(
-                  'Create Account',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32.0),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.email),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
-                    }
-                    if (!value.contains('@')) { // Basic email validation
-                      return 'Please enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16.0),
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.lock),
-                  ),
-                  obscureText: true,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
-                    }
-                    if (value.length < 6) { // Example: Basic password length validation
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
-                ),
-                // Optional: Confirm Password Field
-                // const SizedBox(height: 16.0),
-                // TextFormField(
-                //   controller: _confirmPasswordController,
-                //   decoration: const InputDecoration(
-                //     labelText: 'Confirm Password',
-                //     border: OutlineInputBorder(),
-                //     prefixIcon: Icon(Icons.lock_outline),
-                //   ),
-                //   obscureText: true,
-                //   validator: (value) {
-                //     if (value == null || value.isEmpty) {
-                //       return 'Please confirm your password';
-                //     }
-                //     if (value != _passwordController.text) {
-                //       return 'Passwords do not match';
-                //     }
-                //     return null;
-                //   },
-                // ),
-                const SizedBox(height: 24.0),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _signUp,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0)
-                  ),
-                  child: _isLoading 
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
-                      : const Text('Sign Up'),
-                ),
-                const SizedBox(height: 16.0),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text("Already have an account?"),
-                    TextButton(
-                      onPressed: () {
-                        // Navigate back to LoginScreen
-                        if (Navigator.canPop(context)) {
-                          Navigator.pop(context);
-                        } else {
-                          // Fallback if not pushed (e.g. if it was the initial route, though unlikely here)
-                          // Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Login screen navigation to be implemented if not popped.')),
-                          );
-                        }
-                      },
-                      child: const Text('Login'),
-                    ),
-                  ],
-                ),
-              ],
+    final theme = Theme.of(context);
+    // Match styling from inspiration image
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 24.0), // Padding for the form content
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              'Create Account',
+              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              // textAlign: TextAlign.center, // Center if needed
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Let\'s get started by filling out the form below.',
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              // textAlign: TextAlign.center, // Center if needed
+            ),
+            const SizedBox(height: 32.0),
+            TextFormField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                // labelText: 'Email', // Use hintText for this style
+                hintText: 'Email',
+                // prefixIcon: Icon(FeatherIcons.mail), // Icons inside look clunky with pill shape
+              ),
+              keyboardType: TextInputType.emailAddress,
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Please enter your email';
+                if (!RegExp(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,253}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,253}[a-zA-Z0-9])?)*$").hasMatch(value)) {
+                   return 'Please enter a valid email address';
+                 }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16.0),
+            TextFormField(
+              controller: _passwordController,
+              decoration: InputDecoration(
+                // labelText: 'Password',
+                hintText: 'Password',
+                // prefixIcon: Icon(FeatherIcons.lock),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? FeatherIcons.eyeOff : FeatherIcons.eye,
+                    size: 20,
+                    color: theme.iconTheme.color?.withAlpha(150)
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                ),
+              ),
+              obscureText: _obscurePassword,
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Please enter your password';
+                if (value.length < 6) return 'Password must be at least 6 characters';
+                return null;
+              },
+            ),
+            const SizedBox(height: 32.0),
+            ElevatedButton(
+              onPressed: _isLoading ? null : _signUp,
+              child: _isLoading 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Get Started'),
+            ),
+            const SizedBox(height: 32.0),
+            // TODO: Add "Or sign up with" + Social Buttons later
+            // Row(...) Divider(...) Row(...)
+            // OutlinedButton.icon(...) etc.
+            const SocialSignInButtons(dividerText: 'Or sign up with'), // Pass the text
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- Social Sign In Buttons Widget ---
+class SocialSignInButtons extends StatelessWidget {
+  final String dividerText;
+  const SocialSignInButtons({super.key, required this.dividerText});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        const SizedBox(height: 24.0),
+        Row(
+          children: [
+            const Expanded(child: Divider(thickness: 0.5)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              child: Text(
+                dividerText,
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ),
+            const Expanded(child: Divider(thickness: 0.5)),
+          ],
+        ),
+        const SizedBox(height: 24.0),
+        OutlinedButton(
+          onPressed: () {
+            // TODO: Implement Google Sign-In
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Google Sign-In not implemented yet.')),
+            );
+          },
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
           ),
+          child: const Text('Continue with Google'),
+        ),
+        const SizedBox(height: 12.0),
+        OutlinedButton(
+           onPressed: () {
+            // TODO: Implement Apple Sign-In
+             ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Apple Sign-In not implemented yet.')),
+            );
+           },
+           style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
+           ),
+           child: const Text('Continue with Apple'),
+        ),
+      ],
+    );
+  }
+}
+
+// Keep the original SignUpScreen as a simple wrapper if needed for direct routing,
+// but it will likely be removed or repurposed.
+class SignUpScreen extends StatelessWidget {
+  const SignUpScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Sign Up (Old)')), // Indicate it's old
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: SignUpForm(), // Display the extracted form
         ),
       ),
     );

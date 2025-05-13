@@ -52,7 +52,7 @@ class ChatDbService {
     try {
       final response = await supabase
           .from('chat_sessions')
-          .select('id, title, created_at, updated_at') // Select desired fields
+          .select('id, title, created_at, updated_at, is_starred') // Added is_starred
           .eq('user_id', userId)
           .order('updated_at', ascending: false);
       
@@ -69,14 +69,14 @@ class ChatDbService {
     try {
       final response = await supabase
           .from('chat_messages')
-          .select('id, content, sender, timestamp') // Select necessary fields
+          // Select all the fields needed by ChatMessage model
+          .select('id, content, sender, timestamp, is_placeholder_summary, input_type') 
           .eq('session_id', sessionId)
-          .order('timestamp', ascending: true); // Order by time, oldest first
+          .order('timestamp', ascending: true); 
       
-      // Response is List<Map<String, dynamic>>
       return response;
     } catch (e) {
-      // print("Error loading chat messages for session $sessionId: $e"); // For debugging
+      // print("Error loading chat messages for session $sessionId: $e");
       throw Exception("Failed to load chat messages: ${e.toString()}");
     }
   }
@@ -91,6 +91,98 @@ class ChatDbService {
     } catch (e) {
       // print("Error deleting chat session $sessionId: $e"); // For debugging
       throw Exception("Failed to delete chat session: ${e.toString()}");
+    }
+  }
+
+  // Deletes multiple chat sessions and their associated messages.
+  Future<void> deleteChatSessions(List<String> sessionIds) async {
+    if (sessionIds.isEmpty) {
+      return; // Nothing to delete
+    }
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      throw Exception("User not authenticated to delete sessions.");
+    }
+
+    try {
+      // First, delete associated messages to ensure data integrity if CASCADE isn't fully relied upon for batch
+      // Ensure that users can only delete messages from sessions they own indirectly by filtering sessions by user_id next.
+      // A more robust way would be to join or use an RLS policy that enforces this for messages too.
+      // For now, we rely on the session deletion check.
+      await supabase
+          .from('chat_messages')
+          .delete()
+          .inFilter('session_id', sessionIds);
+
+      // Then, delete the sessions themselves, ensuring they belong to the current user.
+      // Note: The .eq('user_id', userId) here is crucial for security.
+      await supabase
+          .from('chat_sessions')
+          .delete()
+          .inFilter('id', sessionIds)
+          .eq('user_id', userId); // Crucial: Only delete sessions belonging to the user
+
+    } catch (e) {
+      // print("Error deleting chat sessions: $e"); // For debugging
+      throw Exception("Failed to delete chat sessions: ${e.toString()}");
+    }
+  }
+
+  // Renames a chat session
+  Future<void> renameChatSession(String sessionId, String newTitle) async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      throw Exception("User not authenticated to rename session.");
+    }
+    try {
+      await supabase
+          .from('chat_sessions')
+          .update({'title': newTitle})
+          .eq('id', sessionId)
+          .eq('user_id', userId); // Ensure user can only rename their own sessions
+    } catch (e) {
+      // print("Error renaming chat session $sessionId: $e"); // For debugging
+      throw Exception("Failed to rename chat session: ${e.toString()}");
+    }
+  }
+
+  // Updates the starred status of a chat session
+  Future<void> updateStarredStatus(String sessionId, bool isStarred) async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      throw Exception("User not authenticated to update starred status.");
+    }
+    try {
+      await supabase
+          .from('chat_sessions')
+          .update({'is_starred': isStarred})
+          .eq('id', sessionId)
+          .eq('user_id', userId); // Ensure user can only update their own sessions
+    } catch (e) {
+      // print("Error updating starred status for session $sessionId: $e"); // For debugging
+      throw Exception("Failed to update starred status: ${e.toString()}");
+    }
+  }
+
+  // Method to update starred status for multiple sessions
+  Future<void> updateMultipleSessionsStarredStatus(List<String> sessionIds, bool newStarredState) async {
+    if (sessionIds.isEmpty) {
+      return; // Nothing to update
+    }
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      throw Exception("User not authenticated to update starred status for multiple sessions.");
+    }
+
+    try {
+      await supabase
+          .from('chat_sessions')
+          .update({'is_starred': newStarredState})
+          .inFilter('id', sessionIds)
+          .eq('user_id', userId); // Crucial: Only update sessions belonging to the user
+    } catch (e) {
+      // print("Error updating starred status for multiple sessions: $e"); // For debugging
+      throw Exception("Failed to update starred status for multiple sessions: ${e.toString()}");
     }
   }
 

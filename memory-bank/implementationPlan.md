@@ -1,113 +1,179 @@
-# MVP Implementation Plan
+# ELI5 App Implementation Plan
 
-This plan outlines the steps to build the Minimum Viable Product (MVP) focused on text simplification.
+## Phase 1: Basic UI & OpenAI Integration (Core Chat Logic)
+- **Objective:** Create a basic chat interface and integrate OpenAI for text processing.
+- **Key Components:**
+    - Task: Setup Flutter project with Riverpod for state management.
+        - Status: Done
+    - Task: Create `ChatMessage` model.
+        - Status: Done
+    - Task: Create `ChatProvider` using `StateNotifierProvider`.
+        - Status: Done
+    - Task: Build `ChatScreen` UI with `ListView.builder` and `TextField`.
+        - Status: Done
+    - Task: Create `ChatMessageBubble` widget.
+        - Status: Done
+    - Task: Implement `OpenAIService` with `getChatResponse` method for conversational history.
+        - Status: Done
+    - Task: Integrate `OpenAIService` into `ChatProvider` to send messages and receive AI responses.
+        - Status: Done
+    - Task: Manage `ChatState` (loading/error states) in `ChatProvider`.
+        - Status: Done
 
-**Phase 1: Project Setup**
-1.  **Create Flutter Project:** Initialize a new Flutter project named `eli5` using the `flutter create eli5` command.
-2.  **Add Dependencies:** Add necessary packages to `pubspec.yaml`:
-    *   `http`: For making HTTP requests to the OpenAI API.
-    *   `flutter_dotenv`: For securely managing the OpenAI API key.
-    *   Run `flutter pub get`.
-3.  **API Key Setup:**
-    *   Create a `.env` file in the project root.
-    *   Add `OPENAI_API_KEY=YOUR_API_KEY_HERE` to the `.env` file.
-    *   Add `.env` to the `.gitignore` file.
-    *   Load the environment variables in `main.dart`.
+## Phase 2: Content Processing & URL Handling
+- **Objective:** Enable the app to process URLs (general web pages, YouTube videos) and use the fetched content in the chat.
+- **Key Components:**
+    - Task: Implement `ContentFetcherService` for fetching and parsing web content.
+        - Status: Done
+    - Task: Integrate `ContentFetcherService` into `ChatProvider`.
+        - Status: Done
+    - Task: Modify `OpenAIService` to accept override content for summarization/explanation.
+        - Status: Done
+    - Task: Update `ChatProvider` to detect URLs, fetch content, and pass it to `OpenAIService`.
+        - Status: Done
 
-**Phase 2: UI Development (`lib/main.dart` initially)**
-1.  **Basic Structure:** Create a `StatefulWidget` for the main screen.
-2.  **Input Field:** Add a multi-line `TextField` for user input, controlled by a `TextEditingController`.
-3.  **Simplify Button:** Add an `ElevatedButton` labeled "Simplify".
-4.  **Output Areas:** Add two `Container` widgets with `SelectableText` (or `Text` initially) to display the original input and the simplified output.
-5.  **Copy Button:** Add an `IconButton` or `TextButton` next to the simplified output area.
-6.  **Loading Indicator:** Add a `CircularProgressIndicator` that is conditionally displayed.
-7.  **Error Display:** Add a `Text` widget to display error messages conditionally.
+## Phase 3: User Authentication with Supabase
+- **Objective:** Implement user sign-up, login, and session management using Supabase.
+- **Key Components:**
+    - Task: Add `supabase_flutter` package and initialize Supabase.
+        - Status: Done
+    - Task: Create `LoginScreen` and `SignUpScreen` UIs.
+        - Status: Done
+    - Task: Implement navigation between login and sign-up screens.
+        - Status: Done
+    - Task: Implement Supabase `signUp` and `signInWithPassword` logic.
+        - Status: Done
+    - Task: Implement error handling for authentication (e.g., Snackbars).
+        - Status: Done
+    - Task: Create `AuthGate` widget to manage auth state and navigate users.
+        - Status: Done
 
-**Phase 3: Core Logic & API Integration**
-1.  **State Variables:** In the `State` class, manage:
-    *   Input text (`TextEditingController`).
-    *   Original text for display (`String`).
-    *   Simplified text output (`String`).
-    *   Loading status (`bool`).
-    *   Error message (`String?`).
-2.  **API Service:** Create a separate Dart function (e.g., `fetchSimplifiedText(String inputText, String apiKey)`) that:
-    *   Takes the input text and API key as arguments.
-    *   Constructs the JSON payload for the OpenAI API (using `gpt-3.5-turbo` and an ELI5 prompt).
-    *   Makes a POST request using the `http` package.
-    *   Parses the response to extract the simplified text.
-    *   Includes basic error handling (try-catch) for network or API errors.
-    *   Returns the simplified text or throws an error.
-3.  **Button Action:** Implement the `onPressed` handler for the "Simplify" button:
-    *   Set loading state to `true`.
-    *   Clear previous output and errors.
-    *   Get text from the `TextEditingController`.
-    *   Store the original text for display.
-    *   Call the `fetchSimplifiedText` function.
-    *   On success: Update the simplified text state.
-    *   On error: Update the error message state.
-    *   Set loading state to `false`.
-4.  **Copy Functionality:** Implement the `onPressed` handler for the "Copy" button using `Clipboard.setData`.
+## Phase 4: Android App Signing & Initial Release Setup
+- **Objective:** Prepare the Android app for release by setting up signing.
+- **Key Components:**
+    - Task: Generate a release keystore (`upload-keystore.jks`).
+        - Status: Done
+    - Task: Create and configure `key.properties` for signing credentials.
+        - Status: Done
+    - Task: Add `key.properties` to `.gitignore`.
+        - Status: Done
+    - Task: Update `android/app/build.gradle.kts` for release signing.
+        - Status: Done
+    - Task: Build signed Android App Bundle (`app-release.aab`).
+        - Status: Done
+    - Task: Initial Google Play Console upload and addressing setup prerequisites.
+        - Details: Encountered store listing requirements (description, countries, health declaration).
+        - Status: In Progress / Postponed (will complete fully after core app features)
 
-**Phase 4: Refinement**
-1.  **UI Polish:** Basic layout improvements (padding, spacing).
-2.  **Error Handling:** Display errors more user-friendly (e.g., using `SnackBar`).
+## Phase 5: Robust Chat Persistence (Supabase)
+- **Objective:** Implement saving and loading of chat messages and sessions using Supabase.
+- **Key Components:**
+    - Task: Define/confirm `chat_sessions` and `chat_messages` table structures in Supabase.
+        - Status: Done
+    - Task: Implement logic in `ChatProvider` (or a new service) to save user messages and AI responses to `chat_messages`, linked to a `chat_session` and `user_id`.
+        - Status: Done
+    - Task: Implement logic to load chat history for the active/latest session when `ChatScreen` opens.
+        - Status: Done
+    - Task: Define and thoroughly test Supabase RLS policies for `chat_sessions` and `chat_messages`.
+        - Status: Done (Verified)
 
-**Phase 5: Chat Functionality**
-1.  **Chat UI:**
-    *   Design a chat interface (e.g., using `ListView.builder` for messages, `TextField` for input).
-    *   Display user messages and AI responses clearly.
-2.  **State Management for Chat:**
-    *   Choose a state management solution (e.g., Provider, Riverpod, BLoC) to manage the list of chat messages.
-    *   Each message should store its content, sender (user/AI), and timestamp.
-3.  **OpenAI API for Chat:**
-    *   Modify `OpenAIService` to accept a list of previous messages (conversation history).
-    *   Pass the conversation history to the OpenAI API to maintain context.
-    *   The prompt for simplification/Q&A should now consider the ongoing conversation.
-4.  **Integrating Chat with Simplification:**
-    *   When a user asks for simplification or asks a question, it becomes part of a chat session.
-    *   The simplified text or answer is displayed as an AI response in the chat.
+## Phase 6: Photo-to-Text Simplification Feature
+- **Objective:** Allow users to capture text via camera for simplification by OpenAI.
+- **Key Components:**
+    - Task: Research and select appropriate Flutter packages for camera access (e.g., `image_picker`, `camera`) and OCR (e.g., `google_mlkit_text_recognition`).
+        - Status: Done (`image_picker`, `google_mlkit_text_recognition` chosen)
+    - Task: Implement UI for initiating photo capture from `ChatScreen`.
+        - Status: Done (`IconButton` in input bar)
+    - Task: Implement image capture flow using the chosen package(s).
+        - Status: Done
+    - Task: Implement OCR processing to extract text from the captured image.
+        - Status: Done
+    - Task: Integrate extracted text into the existing `ChatProvider` -> `OpenAIService` pipeline for simplification.
+        - Status: Done
+    - Task: Handle platform-specific permissions for camera and gallery access.
+        - Status: Done (Implicit via `image_picker`)
+    - Task: Display OCR'd text or simplified text appropriately in the chat UI.
+        - Status: Done
 
-**Phase 6: User Authentication (Supabase)**
-1.  **Choose Authentication Provider:**
-    *   Decision: **Supabase Auth**.
-    *   Integrate using the `supabase_flutter` package.
-2.  **Project Setup for Auth:**
-    *   Set up a Supabase project.
-    *   Add `supabase_flutter` to `pubspec.yaml`.
-    *   Initialize Supabase in the Flutter app with project URL and anon key.
-    *   Configure desired authentication methods in the Supabase dashboard (e.g., email/password, social logins).
-3.  **Auth UI:**
-    *   Create screens for Login and Sign Up.
-    *   Implement forms for email/password or buttons for social logins using Supabase client methods.
-4.  **Auth Logic:**
-    *   Implement functions to handle user registration (`supabase.auth.signUp`), login (`supabase.auth.signInWithPassword`), and logout (`supabase.auth.signOut`).
-    *   Manage user session using `supabase.auth.onAuthStateChange`.
-    *   Secure app features based on authentication state.
-5.  **User Data Storage (Supabase Database - PostgreSQL):**
-    *   Create tables in Supabase database for:
-        *   `user_profiles` (linked to `auth.users`, for any additional profile data if needed).
-        *   `chat_sessions` (e.g., `id`, `user_id`, `created_at`, `title`).
-        *   `chat_messages` (e.g., `id`, `session_id`, `sender` (user/ai), `content`, `timestamp`).
-    *   Implement Row Level Security (RLS) policies in Supabase to ensure users can only access their own data.
-    *   Store user's chat history and questions asked within these tables.
+## Phase 7: UI/UX Enhancements & Core Chat Features
+- **Objective:** Improve the chat interface, user experience, and add essential chat functionalities, including UI integration for the photo feature.
+- **Key Components:**
+    - Task: Enhance chat history display (e.g., timestamps, smooth loading).
+        - Status: Done (Timestamps, `HistoryListScreen`, recent chats on `ChatScreen` empty state)
+    - Task: Implement functionality to clear current chat / start a new session.
+        - Status: Done (Middle icon '+' in `CurvedNavigationBar` within `AppShell`)
+    - Task: Improve loading and error indicators for AI responses and data fetching.
+        - Status: Done (SpinKit indicators)
+    - Task: Refine text input field behavior.
+        - Status: Done (Input bar repositioned in empty state, styling adjustments)
+    - Task: Add `AppBar` to `ChatScreen` with navigation options.
+        - Status: Obsolete (Replaced by `AppShell`/`CurvedNavigationBar` structure)
+    - Task: Integrate UI elements for initiating photo capture and displaying results seamlessly within the chat flow.
+        - Status: Done (`IconButton` in input bar)
+    - Task: Refine Chat Screen UI and UX
+        - Details: Implemented optimistic delete with UNDO for "Recent Chats" list (consistent with History screen). Fixed RenderFlex overflow in SessionTileWidget (dense mode). Improved AI chat bubble distinction with a new background color.
+        - Status: Done
 
-**Phase 7: Monetization (RevenueCat & Supabase)**
-1.  **Subscription Management:**
-    *   Integrate **RevenueCat** SDK for managing in-app purchases and subscriptions.
-    *   Configure products/offerings in RevenueCat and app stores.
-    *   Use RevenueCat webhooks or Supabase Edge Functions to sync subscription status with your Supabase user data (e.g., add a `subscription_active` field to `user_profiles`).
-    *   Restrict features based on subscription tiers/status.
+## Phase 8: User Settings & Basic Profile Management
+- **Objective:** Provide users with basic account management options.
+- **Key Components:**
+    - Task: Create a simple Settings screen.
+        - Status: Done
+    - Task: Display logged-in user's email on the Settings screen.
+        - Status: Done
+    - Task: Implement a "Sign Out" button and logic on the Settings screen.
+        - Status: Done
+    - Task: Add Theme Switching capability.
+        - Status: Removed (App is now dark-mode only)
 
-**Phase 8: API Key Security & Backend Proxy (Future Enhancement)**
-1.  **Problem:** Client-side OpenAI API key is less secure.
-2.  **Solution:**
-    *   Create a simple backend proxy (e.g., using Supabase Edge Functions, Cloudflare Workers, or a dedicated server).
-    *   Authenticated users make requests to your proxy.
-    *   The proxy, holding the OpenAI API key securely, forwards requests to OpenAI and returns the response.
-    *   This protects the API key and allows for better rate limiting and logging.
-    *   This can be implemented after initial chat and auth features are stable.
+## Phase 9: Testing & Refinement
+- **Objective:** Ensure app stability and a good user experience through thorough testing, including the new photo feature and UI overhaul.
+- **Key Components:**
+    - Task: Conduct end-to-end testing of all user flows (sign-up, login, chat, URL processing, photo-to-text, sign-out, navigation).
+        - Status: In Progress
+    - Task: Specifically test the photo capture, OCR accuracy, and simplification flow with various image types and conditions.
+        - Status: In Progress
+    - Task: Test error handling for network issues, API failures, OCR failures, permission denials, etc.
+        - Status: In Progress
+    - Task: Perform testing on Android emulators and physical devices.
+        - Status: In Progress
+    - Task: Conduct Accessibility Review (Contrast, Theming)
+        - Details: Reviewed key UI elements, fixed Session Tile subtitle contrast.
+        - Status: Done (Initial Pass)
+    - Task: Implement Multi-select in History List Screen
+        - Details: Added state management, tile UI/interactions, contextual app bar, batch delete with Undo (fixed UI refresh issue), batch star/unstar functionality.
+        - Status: Done
+    - Task: Implement Two-pane Layout for wider screens
+        - Status: To Do
 
-**Phase 9: Refinement & Further Features**
-1.  **UI/UX Polish:** Continuous improvements based on user feedback.
-2.  **Advanced Settings:** Model selection, tone adjustment, etc.
-3.  **Testing:** Unit, widget, and integration tests. 
+## Phase 10: Monetization with RevenueCat (Post-Core Features & Deployment Readiness)
+- **Objective:** Integrate RevenueCat for subscription management once core features are stable and the app is deployment-ready.
+- **Key Components:**
+    - Task: Plan subscription tiers and features.
+        - Status: To Do
+    - Task: Set up RevenueCat account and configure products/entitlements.
+        - Status: To Do
+    - Task: Integrate RevenueCat SDK into the Flutter app.
+        - Status: To Do
+    - Task: Implement UI for displaying subscription options.
+        - Status: To Do
+    - Task: Implement purchase flow and entitlement checking.
+        - Status: To Do
+    - Task: Connect RevenueCat with Supabase (e.g., webhook or custom claims) to sync subscription status with user profiles.
+        - Status: To Do
+    - Task: Secure features based on subscription status.
+        - Status: To Do
+    - Task: Monitor app performance, reviews, and feedback post-launch.
+        - Status: To Do
+
+## Phase 11: Deployment & Publishing (Google Play Store - Post-Core Features)
+- **Objective:** Prepare and publish the app on the Google Play Store.
+- **Key Components:**
+    - Task: Finalize all Google Play Console requirements (store listing, graphics, content rating, privacy policy).
+        - Status: Postponed
+    - Task: Create and manage testing tracks (closed, open) on Play Console effectively.
+        - Status: Postponed
+    - Task: Promote builds through testing tracks to production.
+        - Status: To Do
+    - Task: Monitor app performance, reviews, and feedback post-launch.
+        - Status: To Do 
