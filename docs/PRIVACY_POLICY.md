@@ -48,9 +48,19 @@ The Service Provider may disclose User Provided and Automatically Collected Info
 
 You can stop all collection of information by the Application easily by uninstalling it. You may use the standard uninstall processes as may be available as part of your mobile device or via the mobile application marketplace or network.
 
-**Data Retention Policy**
+**Data Retention Policy, User Data Deletion, and Account Deletion**
 
-The Service Provider will retain User Provided data for as long as you use the Application and for a reasonable time thereafter. If you'd like them to delete User Provided Data that you have provided via the Application, please contact them at ahen@gentartgrup.com.tr and they will respond in a reasonable time.
+The Service Provider will retain User Provided data for as long as you use the Application and for a reasonable time thereafter.
+
+**User Data Deletion:**
+If you'd like the Service Provider to delete User Provided Data that you have provided via the Application (such as specific chat sessions), please contact them at ahen@gentartgrup.com.tr with details of your request, and they will respond in a reasonable time. You can also delete individual chat sessions directly within the Application.
+
+**Account Deletion:**
+You may request the deletion of your entire ELI5 account and all associated data at any time. To do so, please send an email to ahen@gentartgrup.com.tr with the subject line "Account Deletion Request" and include the email address associated with your ELI5 account.
+
+Upon receiving your account deletion request, we will process it within a reasonable timeframe (e.g., 30 days). Deleting your account will permanently remove your user profile from our active authentication system (Supabase Auth) and all your associated data including chat sessions and messages from our active databases (Supabase Database).
+
+Please note that while your data is removed from our active systems, our backend provider, Supabase, may retain backup data for a limited period as per their data retention policies. This backup data is not accessible for normal app operations and is maintained for disaster recovery purposes.
 
 **Children**
 
