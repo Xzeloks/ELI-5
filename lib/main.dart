@@ -14,7 +14,7 @@ import 'dart:io'; // Import for Platform environment
 // import 'package:youtube_explode_dart/youtube_explode_dart.dart'; // REMOVED - Unused in main.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/auth_gate.dart';
-// import 'package:purchases_flutter/purchases_flutter.dart'; // Import RevenueCat Purchases
+import 'package:purchases_flutter/purchases_flutter.dart'; // Import RevenueCat Purchases
 import 'package:google_fonts/google_fonts.dart';
 
 // Define App Colors (keeping both, but only dark theme will be used)
@@ -51,17 +51,45 @@ class AppColors {
 // REMOVED themeModeProvider
 // final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
 
+// Provider for the Supabase auth user stream
+final authUserStreamProvider = StreamProvider<User?>((ref) {
+  return Supabase.instance.client.auth.onAuthStateChange.map((authState) {
+    return authState.session?.user;
+  });
+});
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await dotenv.load(fileName: ".env", mergeWith: Platform.environment);
   } catch (e) {
     // Handle error
+    print('Error loading .env file: $e'); // Added print for error
   }
   await Supabase.initialize(
     url: 'https://dhztoureixsskctbpovk.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRoenRvdXJlaXhzc2tjdGJwb3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY1MzQ4MTgsImV4cCI6MjA2MjExMDgxOH0.n1R4Mwj2l0FICRtLG76J0Y8f_5DLhl4MaBuxePva5qE',
   );
+
+  // Initialize RevenueCat
+  // try {
+  //   await Purchases.setLogLevel(LogLevel.debug); // Optional: for debugging
+  //   // TODO: Replace with your actual RevenueCat API keys
+  //   String revenueCatApiKey;
+  //   if (Platform.isAndroid) {
+  //     revenueCatApiKey = "goog_cDDinrdQJBPDaEiLIRWboxoywPd"; // Replace with your Google Play API key
+  //   } else if (Platform.isIOS) {
+  //     revenueCatApiKey = "YOUR_APP_STORE_API_KEY_HERE"; // Replace with your App Store API key
+  //   } else {
+  //     // Handle other platforms or throw an error if unsupported
+  //     throw Exception("Unsupported platform for RevenueCat initialization");
+  //   }
+  //   await Purchases.configure(PurchasesConfiguration(revenueCatApiKey));
+  //   print('RevenueCat configured successfully.');
+  // } catch (e) {
+  //   print('Error configuring RevenueCat: $e');
+  //   // Handle error appropriately, perhaps show a message to the user or disable paywall features
+  // }
 
   runApp(const ProviderScope(child: MyApp()));
 }

@@ -3,14 +3,25 @@ import 'dart:convert';
 import 'package:eli5/models/chat_message.dart'; // Import ChatMessage model
 import 'package:eli5/models/simplification_style.dart'; // ADDED import
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // Added for .env access
 
 class OpenAIService {
+  // Define the Supabase Edge Function URL
+  static const String _supabaseFunctionUrl = 'https://dhztoureixsskctbpovk.supabase.co/functions/v1/openai-proxy';
 
-  Future<String> fetchSimplifiedText(String inputText, String apiKey, {bool isQuestion = false}) async {
-    final url = Uri.parse('https://api.openai.com/v1/chat/completions');
+  Future<String> fetchSimplifiedText(String inputText, {bool isQuestion = false}) async { // Removed apiKey parameter
+    final url = Uri.parse(_supabaseFunctionUrl);
+    final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+
+    if (supabaseAnonKey == null) {
+      throw Exception('SUPABASE_ANON_KEY not found in .env file');
+    }
+
     final headers = {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer $apiKey',
+      'apikey': supabaseAnonKey, // Use Supabase anon key
+      // If you have user authentication with Supabase and your function uses it:
+      // 'Authorization': 'Bearer YOUR_SUPABASE_USER_JWT', 
     };
 
     // Determine the prompt based on whether it's a question or text to simplify
@@ -74,14 +85,21 @@ class OpenAIService {
   // New method for chat completions
   Future<String> getChatResponse(
     List<ChatMessage> fullHistory, 
-    String apiKey,
-    {String? effectiveLastUserMessageContent, // New optional parameter
-     SimplificationStyle style = SimplificationStyle.eli5} // ADDED: style parameter
+    {String? effectiveLastUserMessageContent, 
+     SimplificationStyle style = SimplificationStyle.eli5} 
   ) async {
-    final url = Uri.parse('https://api.openai.com/v1/chat/completions');
+    final url = Uri.parse(_supabaseFunctionUrl);
+    final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+
+    if (supabaseAnonKey == null) {
+      throw Exception('SUPABASE_ANON_KEY not found in .env file');
+    }
+
     final headers = {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer $apiKey',
+      'apikey': supabaseAnonKey, // Use Supabase anon key
+      // If you have user authentication with Supabase and your function uses it:
+      // 'Authorization': 'Bearer YOUR_SUPABASE_USER_JWT',
     };
 
     // Define a system message for the chat context based on the style
@@ -141,7 +159,7 @@ class OpenAIService {
       // Optionally, append a note that content was truncated, though this adds to the token count.
       // userContentForApi += "\n\n[Note: The input content was too long and has been truncated to fit processing limits.]";
     }
-    
+
     // Convert List<ChatMessage> to the format OpenAI API expects
     List<Map<String, String>> apiMessages = [];
     for (int i = 0; i < fullHistory.length; i++) {

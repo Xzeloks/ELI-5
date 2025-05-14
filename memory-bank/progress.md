@@ -175,3 +175,114 @@ Continued refinement of the Chat and History screens, focusing on delete functio
 *   **AI Chat Bubble Distinction:**
     *   **Issue:** AI-generated messages on the `ChatScreen` used the same background color as the `scaffoldBackgroundColor`, making them blend in.
     *   **Solution:** Updated `lib/widgets/chat_message_bubble.dart` to use `AppColors.inputFillDark` for the `receiverColor` (AI messages). This provides a distinct, slightly lighter background for AI responses, improving readability. 
+
+## UI Refinements, Glow Effects, and Fixes (Post-Simplification Styles)
+
+- **Chat Input Bar Glow Effect:**
+    - Added a purple `BoxShadow` to the input bar container on `ChatScreen` for a glow effect.
+    - Iterated on shadow parameters (opacity, blurRadius, spreadRadius) for desired intensity.
+
+- **Chat Message Bubble Glow Effect:**
+    - Extended the glow effect to individual chat message bubbles by adding a similar `BoxShadow` to `ModernChatBubble`.
+    - Ensured necessary imports (`AppColors` in `modern_chat_bubble.dart`).
+
+- **Session Tile Glow Effect & History Screen Separator Line Fix:**
+    - Implemented a purple glow effect for `SessionTileWidget` (used in "Recent Chats" on `ChatScreen` and on `HistoryListScreen`).
+    - **Troubleshooting Separator Line Artifact:**
+        - Investigated a faint line appearing under day separators (`Today`, `May 2025`, etc.) on `HistoryListScreen`.
+        - Initial attempts involved adjusting `SessionTileWidget`'s shadow, padding, and background.
+        - **Identified Root Cause:** The line was caused by `elevation: 1.0` on the `Material` widget in `HistoryListScreen's `groupSeparatorBuilder`.
+        - **Solution:** Removed the `elevation` from the separator's `Material` widget, resolving the line artifact.
+    - **Finalizing Tile Glow:**
+        - After fixing the separator line, a consistent glow effect was re-established for `SessionTileWidget`.
+        - The glow's size (`blurRadius`, `spreadRadius`) was adjusted for a more pronounced effect (`opacity: 0.20, blurRadius: 6.0, spreadRadius: 0.0, offset: const Offset(0, 3)`).
+
+- **Navbar Color Iteration (`CurvedNavigationBar`):**
+    - Experimented with several custom hex colors and `AppColors` for the navbar's `color` property.
+    - Settled on using `AppColors.kopyaPurple` for both the navbar bar `color` and its `buttonBackgroundColor` for a consistent purple theme.
+
+- **Authentication Screen `TabBar` Indicator Line Fix:**
+    - Addressed an unwanted white line appearing under the "Create Account" / "Log In" tabs on `AuthScreen.dart`.
+    - **Solution:** Set `indicatorColor: Colors.transparent`, `indicatorWeight: 0.0`, and `dividerColor: Colors.transparent` on the `TabBar` widget to fully suppress the default underline/divider.
+
+- **Git Checkpoint:**
+    - Created a git commit: "Checkpoint: Auth screen TabBar indicator line removed and navbar color finalized". 
+
+## [Date of Last Edits - YYYY-MM-DD] - API Key Security & Navigation Overhaul
+
+### Implemented API Key Security (Proxy via Supabase Edge Function)
+- **Goal:** Secure the OpenAI API key by not bundling it with the client-side Flutter app.
+- **Steps & Outcome:**
+    - Successfully created and deployed a Supabase Edge Function named `openai-proxy`.
+        - Wrote TypeScript code for the function to:
+            - Handle CORS.
+            - Receive prompt data from the Flutter app.
+            - Fetch the `OPENAI_API_KEY` from Supabase environment secrets.
+            - Make the actual call to the OpenAI API.
+            - Return the response to the Flutter app.
+        - Created a shared `_shared/cors.ts` file for CORS headers.
+    - Stored the `OPENAI_API_KEY` securely as an environment variable (secret) in the Supabase project settings.
+    - **Troubleshooting:** Resolved Docker connectivity issues during Supabase deployment by ensuring Docker Desktop was running and by executing deployment commands from an administrator terminal on Windows. This was critical for `supabase functions deploy`.
+    - Modified `OpenAIService` in the Flutter application:
+        - Removed the direct OpenAI API key parameter from methods (`fetchSimplifiedText`, `getChatResponse`).
+        - Updated methods to call the new Supabase Edge Function URL.
+        - Added logic to use `SUPABASE_ANON_KEY` (from `.env`) for authorizing requests to the Edge Function.
+    - Updated calling code in `ChatNotifier` (`chat_provider.dart`) and `ChatScreen` (`chat_screen.dart`) to no longer pass the OpenAI API key directly, and removed outdated API key checks from the UI.
+- **Status:** Completed. API key is no longer exposed on the client-side.
+
+### Enhanced Back Button Navigation Logic
+- **Initial Problem:** System back button often exited the app unexpectedly, especially from `ChatScreen`.
+- **Solution Part 1: `AppShell` `WillPopScope` for `PageView`**
+    - Implemented `WillPopScope` in `AppShell.dart` to manage back navigation for the main `PageView` (tabs: History, Chat, Settings).
+    - Logic:
+        - If on History (index 0) or Settings (index 2), pressing back navigates to Chat (index 1 - set as the main/home tab).
+        - If on Chat (index 1), pressing back exits the app.
+    - This provided more controlled navigation between the main tabs.
+- **Initial Problem (Continued):** Opening a specific chat from `HistoryListScreen` still used the `AppShell`'s `PageView` instance of `ChatScreen`, leading to the app exiting on back press instead of returning to history.
+- **Solution Part 2: True Detail View for Specific Chats**
+    - Modified `ChatScreen.dart`:
+        - Added an optional `sessionId` parameter to its constructor.
+        - If a `sessionId` is provided, `initState` now calls `ref.read(chatProvider.notifier).loadSession(sessionId)`.
+        - Conditionally added a `Scaffold` with an `AppBar` to `ChatScreen` when a `sessionId` is present. This `AppBar` automatically provides a back button for pushed routes.
+    - Modified `_session_tile.dart` (in `HistoryListScreen`):
+        - Changed the `onTap` action for a chat session.
+        - Instead of switching `AppShell`'s `PageView` index, it now uses `Navigator.push()` to navigate to a *new instance* of `ChatScreen`, passing the specific `sessionId`.
+- **Outcome:**
+    - Back button navigation is now more intuitive.
+    - Pressing back from a specific chat session (opened as a detail view) correctly returns to `HistoryListScreen`.
+    - Back navigation within the main `AppShell` tabs follows the defined `WillPopScope` logic.
+
+## [Date] - Settings Page UI, Legal Docs, RevenueCat Init & Build Fixes
+
+- **Settings Page UI (`lib/screens/settings_screen.dart`):**
+    - Completed UI: Added "Help & Feedback" (Report Bug, Contact Support) and "About" (Privacy Policy, Terms of Service) sections.
+    - Added "Subscription" section (Manage Subscription).
+    - Used helper widgets `_buildSectionTitle` and `_buildSettingsListTile`.
+    - Moved Sign Out/In button to bottom, removed dividers.
+- **Legal Documents & URL Launching:**
+    - Hosted `PRIVACY_POLICY.md` & `TERMS_OF_SERVICE.md` on GitHub Pages.
+    - Refined `PRIVACY_POLICY.md` content regarding data collection.
+    - Integrated `url_launcher` to open these URLs and `mailto:` links for support/bug reports.
+    - Added necessary `<queries>` to `AndroidManifest.xml` for `http/https` and `mailto` intents.
+- **Manage Subscription (RevenueCat):**
+    - Implemented `onTap` logic for "Manage Subscription" to launch RevenueCat's `managementURL` or fallback to store URLs.
+- **RevenueCat Initialization & Paywall:**
+    - Initialized RevenueCat in `main.dart` with Google Play API key.
+    - Added `purchases_ui_flutter` for RevenueCat's paywall.
+    - Implemented `RevenueCatUI.presentPaywallIfNeeded("premium")` in `AuthGate`.
+    - Guided on product setup in RevenueCat & Play Console (test accounts).
+- **Android Build Issues & Resolutions:**
+    - Updated `minSdkVersion` to `24` for `purchases_ui_flutter`.
+    - Fixed "package identifier not found" by adding `package` to `AndroidManifest.xml`.
+    - Resolved "Unsupported Gradle project" by regenerating `android` folder and reapplying essential configurations (`namespace`, `applicationId`, `minSdk`, permissions, queries).
+    - Corrected NDK version mismatch and `MainActivity` `ClassNotFoundException` by updating `ndkVersion`, renaming package path from `com/example/eli5` to `com/ahenyagan/eli5`, and updating `package` in `MainActivity.kt`.
+    - Updated `MainActivity.kt` to inherit from `FlutterFragmentActivity` for RevenueCat UI.
+- **Data Isolation / Chat Loading Issues:**
+    - Investigated initial reports of seeing other users' chats.
+    - Currently troubleshooting blank chat pages when opening sessions from history (possibly RLS related or loading logic).
+
+## [Current Date] - Google Play Console: Production Readiness
+- **Shift in Focus:** Addressed requirements for applying for production access in the Google Play Console.
+- **Tasks Initiated:**
+    - Setting up a closed test track.
+    - Understanding requirements: publishing a closed test version, enrolling 12+ testers, and testing for 14+ days. 

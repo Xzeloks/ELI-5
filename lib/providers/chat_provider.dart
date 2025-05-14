@@ -7,6 +7,7 @@ import 'package:eli5/services/chat_db_service.dart'; // Import ChatDbService
 import 'package:supabase_flutter/supabase_flutter.dart'; // For Supabase.instance.client.auth.currentUser
 import 'dart:math'; // For generating unique IDs for now
 import 'package:eli5/providers/history_list_providers.dart'; // Import history providers
+import 'package:eli5/main.dart'; // Import for authUserStreamProvider
 
 // Provider for the ChatNotifier state
 final chatProvider = StateNotifierProvider<ChatNotifier, ChatState>((ref) {
@@ -29,16 +30,20 @@ final chatDbServiceProvider = Provider<ChatDbService>((ref) => ChatDbService());
 
 // Provider to fetch the list of user's chat sessions
 final chatSessionsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  print("[chatSessionsProvider] Executing...");
-  final userId = Supabase.instance.client.auth.currentUser?.id;
-  if (userId == null) {
+  // Watch the user stream provider
+  final authUserAsyncValue = ref.watch(authUserStreamProvider); // Defined in main.dart
+
+  return authUserAsyncValue.when(
+    data: (user) async { // User object is available
+      print("[chatSessionsProvider] Executing with user: ${user?.id}");
+      if (user == null) {
     print("[chatSessionsProvider] User not authenticated, returning empty list.");
     return [];
   }
-  print("[chatSessionsProvider] User ID: $userId");
+      final userId = user.id;
   final chatDbService = ref.read(chatDbServiceProvider);
   final allSessions = await chatDbService.loadUserChatSessions(userId);
-  print("[chatSessionsProvider] Fetched ${allSessions.length} sessions from DB before filtering.");
+      print("[chatSessionsProvider] Fetched ${allSessions.length} sessions from DB for user $userId before filtering.");
 
   // Watch search query and filter type
   final searchQuery = ref.watch(historySearchQueryProvider).toLowerCase();
@@ -79,8 +84,18 @@ final chatSessionsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) as
       }
     }).toList();
   }
-  print("[chatSessionsProvider] Returning ${filteredSessions.length} sessions after filtering.");
+      print("[chatSessionsProvider] Returning ${filteredSessions.length} sessions for user $userId after filtering.");
   return filteredSessions;
+    },
+    loading: () {
+      print("[chatSessionsProvider] Auth user stream loading, returning empty list temporarily.");
+      return []; // Or handle loading state appropriately
+    },
+    error: (err, stack) {
+      print("[chatSessionsProvider] Error in auth user stream: $err. Returning empty list.");
+      return []; // Or handle error state appropriately
+    },
+  );
 });
 
 // State class to hold both messages and loading status
@@ -152,7 +167,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     state = state.copyWith(selectedStyle: style);
   }
 
-  Future<void> sendMessageAndGetResponse(String rawInputText, String apiKey, {bool isFromOcr = false}) async {
+  Future<void> sendMessageAndGetResponse(String rawInputText, {bool isFromOcr = false}) async {
     if (rawInputText.isEmpty) return;
 
     final userId = Supabase.instance.client.auth.currentUser?.id;
@@ -245,7 +260,6 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
       final aiResponseText = await _openAIService.getChatResponse(
         state.messages, 
-        apiKey,
         effectiveLastUserMessageContent: contentForAI,
         style: state.selectedStyle, // UNCOMMENTED: Pass the selected style
       );

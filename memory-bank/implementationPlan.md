@@ -170,9 +170,9 @@
 - **Objective:** Prepare and publish the app on the Google Play Store.
 - **Key Components:**
     - Task: Finalize all Google Play Console requirements (store listing, graphics, content rating, privacy policy).
-        - Status: Postponed
+        - Status: In Progress
     - Task: Create and manage testing tracks (closed, open) on Play Console effectively.
-        - Status: Postponed
+        - Status: In Progress
     - Task: Promote builds through testing tracks to production.
         - Status: To Do
     - Task: Monitor app performance, reviews, and feedback post-launch.

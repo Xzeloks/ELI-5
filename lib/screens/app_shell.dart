@@ -72,34 +72,45 @@ class _AppShellState extends ConsumerState<AppShell> {
       _buildNavItem(context, FeatherIcons.settings, selectedPageIndex == 2, selectedIconColor, unselectedIconColor),
     ];
 
-    return Scaffold(
-      extendBody: true, // Allow body to extend behind the navbar
-      body: PageView( // PageView directly in the body
-            controller: _pageController,
-            onPageChanged: (index) {
-              ref.read(appShellSelectedIndexProvider.notifier).state = index;
+    return WillPopScope(
+      onWillPop: () async {
+        final selectedPageIndex = ref.read(appShellSelectedIndexProvider);
+        if (selectedPageIndex != 1) { // If not on the ChatScreen (index 1)
+          // Navigate to the ChatScreen (index 1)
+          ref.read(appShellSelectedIndexProvider.notifier).state = 1;
+          return false; // Prevent app exit
+        }
+        return true; // Allow app exit if on ChatScreen (index 1)
+      },
+      child: Scaffold(
+        extendBody: true, // Allow body to extend behind the navbar
+        body: PageView( // PageView directly in the body
+              controller: _pageController,
+              onPageChanged: (index) {
+                ref.read(appShellSelectedIndexProvider.notifier).state = index;
+              },
+              children: screens,
+            ),
+        // Move CurvedNavigationBar back to the bottomNavigationBar slot
+        bottomNavigationBar: CurvedNavigationBar(
+            index: selectedPageIndex, 
+            height: 65.0, 
+            items: navBarItems,
+            color: AppColors.kopyaPurple, // USING AppColors.kopyaPurple for the bar
+            buttonBackgroundColor: AppColors.kopyaPurple, // This was already kopyaPurple
+            backgroundColor: Colors.transparent, // Make the area behind the curve transparent
+            animationCurve: Curves.easeInOut,
+            animationDuration: const Duration(milliseconds: 400),
+            onTap: (tappedIconIndex) {
+              if (tappedIconIndex == 1) { // Chat/Plus icon tapped
+                ref.read(chatProvider.notifier).clearCurrentSessionId();
+              }
+              
+              ref.read(appShellSelectedIndexProvider.notifier).state = tappedIconIndex;
             },
-            children: screens,
+            letIndexChange: (index) => true,
           ),
-      // Move CurvedNavigationBar back to the bottomNavigationBar slot
-      bottomNavigationBar: CurvedNavigationBar(
-          index: selectedPageIndex, 
-          height: 65.0, 
-          items: navBarItems,
-          color: AppColors.kopyaPurple, // USING AppColors.kopyaPurple for the bar
-          buttonBackgroundColor: AppColors.kopyaPurple, // This was already kopyaPurple
-          backgroundColor: Colors.transparent, // Make the area behind the curve transparent
-          animationCurve: Curves.easeInOut,
-          animationDuration: const Duration(milliseconds: 400),
-          onTap: (tappedIconIndex) {
-            if (tappedIconIndex == 1) { // Chat/Plus icon tapped
-              ref.read(chatProvider.notifier).clearCurrentSessionId();
-            }
-            
-            ref.read(appShellSelectedIndexProvider.notifier).state = tappedIconIndex;
-          },
-          letIndexChange: (index) => true,
-        ),
+      ),
     );
   }
 

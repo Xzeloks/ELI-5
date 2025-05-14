@@ -1,34 +1,62 @@
 # Active Context
 
-The primary goal was to complete the core application features and undertake a major UI overhaul, bringing the app closer to a deployment-ready state.
+The primary focus has recently been on enhancing core application security and user experience through navigation improvements.
 
-This involved:
-1.  Implementing the photo-to-text simplification feature. **[Done]**
-2.  Completing robust chat message persistence using Supabase. **[Done & Verified via RLS]**
-3.  **Major UI/UX Overhaul:** Implementing a persistent `CurvedNavigationBar` managed by `AppShell`, consolidating `ChatScreen`, `HistoryListScreen`, and `SettingsScreen` into `AppShell`'s `PageView`. Implementing dark-mode only theme with blur background. **[Done]**
-4.  Adding basic user profile/settings management (e.g., sign out). **[Done - Settings Screen Implemented, Theme Switch Removed]**
-5.  Thorough testing of all features. **[Ongoing]**
+**Completed Tasks:**
 
-Monetization (RevenueCat) and full Play Console deployment will follow now that the core features and UI structure are refined.
+1.  **API Key Security via Supabase Edge Function:**
+    *   Successfully implemented a Supabase Edge Function (`openai-proxy`) to act as a secure intermediary for OpenAI API calls.
+    *   The `OPENAI_API_KEY` is now stored as a Supabase secret, no longer exposed in the client application.
+    *   Flutter's `OpenAIService` was refactored to communicate with this Edge Function using the `SUPABASE_ANON_KEY`.
+    *   Deployment issues related to Docker permissions on Windows were resolved.
 
-*   **Current Focus:** Finalizing `CurvedNavigationBar` styling (icon backgrounds) and ensuring the integrated UI (`AppShell` containing `ChatScreen`, `HistoryListScreen`, `SettingsScreen` with blur background) is stable and visually correct. Preparing to implement session deletion and then move towards monetization.
-*   **Recent Changes:**
+2.  **Back Button Navigation Overhaul:**
+    *   Addressed issues where the system back button would prematurely exit the app.
+    *   Implemented `WillPopScope` in `AppShell` to define a clear navigation flow for the main tabs (History, Chat, Settings), with Chat as the primary tab for exit confirmation.
+    *   Refactored navigation for opening specific chat sessions from the history list. These now use `Navigator.push` to open a dedicated `ChatScreen` instance (with an `AppBar` and back button), ensuring users are returned to the history list upon pressing back.
+
+**Current Status:**
+These foundational improvements are now complete. The application is more secure and offers a more intuitive navigation experience.
+
+**Next Focus:**
+
+*   **Finalizing the UI for the Settings Page (`lib/screens/settings_screen.dart`):**
+    *   Review existing elements and implement any necessary additions or refinements (e.g., links for support, legal information, app version).
+
+The recent development cycle focused on significant UI polish and bug fixing across various screens, including the Chat Screen, History Screen, App Shell (Navbar), and Authentication Screen. This included implementing glow effects, resolving visual artifacts (like the separator line and TabBar indicator line), and iterating on theme colors.
+
+**Key accomplishments in this phase:**
+*   Finalized glow effects for chat input, chat bubbles, and session tiles.
+*   Resolved visual artifacts related to shadows and dividers on the History and Auth screens.
+*   Standardized the CurvedNavigationBar color and its integration.
+*   Created a stable checkpoint for these UI refinements.
+*   Successfully implemented API Key Security via Supabase Edge Function.
+*   Overhauled back button navigation for a more intuitive user experience.
+
+**Current Focus:**
+*   The primary development task is **Finalizing the UI for the Settings Page (`lib/screens/settings_screen.dart`)**. This includes reviewing existing elements and implementing any necessary additions or refinements (e.g., links for support, legal information, app version).
+
+**Next Steps (General):**
+1.  Complete UI development for the Settings page.
+2.  Once Settings page UI is finalized, the next major task will be the **Implementation of Monetization using RevenueCat**.
+3.  Update `implementationPlan.md` as these tasks progress.
+4.  Conduct thorough testing of new UI elements and the eventual monetization flow.
+
+Monetization (RevenueCat) and full Play Console deployment will follow now that the core features, API security, navigation, and UI structure are refined.
+
+*   **Recent Changes (Summary of last major cycle):**
+    *   Implemented API Key Security via Supabase Edge Function.
+    *   Overhauled Back Button Navigation.
     *   Replaced `BottomAppBar`/`FAB` with `CurvedNavigationBar`.
     *   Consolidated `ChatScreen`, `HistoryListScreen`, `SettingsScreen` into `AppShell`'s `PageView`.
     *   Made `ChatScreen` the default initial screen within `AppShell`.
     *   Removed nested `Scaffold` widgets from page views.
     *   Ensured `CurvedNavigationBar` persists across main tabs.
     *   Enforced dark-mode only theme, removing light theme and UI switches.
-    *   Replaced gradient background with solid color + `BackdropFilter` blur.
+    *   Replaced gradient background with solid color + `BackdropFilter` blur (though blur was later removed from main app shell).
     *   Refined `CurvedNavigationBar` styling (colors, dynamic icons, selected icon background).
-    *   Fixed navbar disappearing bug, `No Material widget found` error, dependency issues, and linter warnings.
+    *   Fixed various bugs including navbar disappearing, `No Material widget found` errors, dependency issues, and linter warnings.
     *   Refactored `ChatScreen` empty state layout.
-*   **Next Steps (General):**
-    1.  Finalize `CurvedNavigationBar` icon styling.
-    2.  Implement Session Deletion from `HistoryListScreen`.
-    3.  Conduct thorough testing of the complete user flow with the new UI.
-    4.  Address any bugs or minor UI inconsistencies found during testing.
-    5.  Prepare for reintegrating RevenueCat.
 *   **Next Steps (Monetization - Upon Resuming):**
     1.  Uncomment RevenueCat initialization in `main.dart`.
     2.  Finalize Google Play Console setup for RevenueCat.
@@ -37,4 +65,15 @@ Monetization (RevenueCat) and full Play Console deployment will follow now that 
     5.  Implement Paywall UI screen.
     6.  Implement logic to fetch offerings and handle purchases.
     7.  Integrate paywall with AuthGate based on subscription status.
-*   **Active Decisions:** Keep RevenueCat init disabled during UI stabilization and feature completion (session deletion). Focus on finalizing UI and core features before proceeding to monetization. 
+*   **Active Decisions:** Keep RevenueCat init disabled during UI stabilization and feature completion (session deletion). Focus on finalizing UI and core features before proceeding to monetization.
+
+**Current Focus (as of latest interaction):**
+*   **Google Play Console - Production Readiness:**
+    *   The immediate task is to address the requirements for applying for production access in the Google Play Console.
+    *   This involves setting up a closed test track.
+    *   Key requirements include:
+        *   Publishing a closed test version.
+        *   Ensuring at least 12 test users are registered for the closed test.
+        *   Conducting closed testing with these users for at least 14 days.
+*   **Troubleshooting Data Isolation & Chat Loading:**
+    *   Concurrently, investigating and resolving the issue where opening chat sessions from history results in a blank chat page. This might be related to RLS policies and how `user_id` was previously associated with messages, or a bug in the loading/display logic for historical chats. 

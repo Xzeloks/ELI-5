@@ -270,14 +270,14 @@ class HistoryListScreen extends ConsumerWidget {
                               Expanded(child: Divider(color: AppColors.dividerDark, thickness: 0.8)),
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Text(
+                      child: Text(
                                   groupName,
                                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                                         color: AppColors.textMediumEmphasisDark,
                                         fontWeight: FontWeight.bold, // Make text bolder
-                                      ),
-                                ),
-                              ),
+                        ),
+                      ),
+                    ),
                               Expanded(child: Divider(color: AppColors.dividerDark, thickness: 0.8)),
                             ],
                           ),

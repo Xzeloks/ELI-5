@@ -24,7 +24,9 @@ const String _processingImagePlaceholder = 'Processing image for simplification.
 
 // Convert to ConsumerStatefulWidget
 class ChatScreen extends ConsumerStatefulWidget {
-  const ChatScreen({super.key});
+  final String? sessionId; // Added sessionId parameter
+
+  const ChatScreen({super.key, this.sessionId}); // Updated constructor
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -41,8 +43,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     _messageController = TextEditingController();
-    // Optional: Scroll to bottom when new messages are added
-    // This might be better handled by watching the messages list length
+
+    // If a specific session ID is provided to this screen instance, load it.
+    if (widget.sessionId != null) {
+      // Ensure that the widget is mounted and providers are available.
+      // Using addPostFrameCallback to ensure build is complete and ref is safe to read.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) { // Check if the widget is still in the tree
+          print("[ChatScreen] initState: Loading session with ID: ${widget.sessionId}");
+          ref.read(chatProvider.notifier).loadSession(widget.sessionId!);
+        }
+      });
+    } else {
+      // This is the "main" ChatScreen instance (e.g., for new chats from nav bar)
+      // Ensure it reflects the current state of chatProvider (new or existing via provider's currentSessionId)
+      // If chatProvider's currentSessionId is null, it implies a new chat.
+      // If it's not null, it implies a session was already loaded into the provider,
+      // perhaps by a previous action or if it's the default screen.
+      // No explicit action needed here as the screen will build based on chatProvider's state.
+      print("[ChatScreen] initState: No specific sessionId provided. Will reflect chatProvider state.");
+    }
   }
 
   @override
@@ -293,19 +313,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
             Material(
-              color: theme.colorScheme.primary,
+                color: theme.colorScheme.primary,
               borderRadius: BorderRadius.circular(24.0), // CHANGED: Adjusted for a more circular button feel within the bar
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: isAiResponding || isProcessingImage ? null : onSendPressed,
-                splashColor: theme.colorScheme.onPrimary.withAlpha((255 * 0.2).round()),
-                highlightColor: theme.colorScheme.onPrimary.withAlpha((255 * 0.1).round()),
-                child: Padding(
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: isAiResponding || isProcessingImage ? null : onSendPressed,
+                  splashColor: theme.colorScheme.onPrimary.withAlpha((255 * 0.2).round()),
+                  highlightColor: theme.colorScheme.onPrimary.withAlpha((255 * 0.1).round()),
+                  child: Padding(
                   padding: const EdgeInsets.all(10.0), // Kept inner padding for tap area and icon spacing
-                  child: Icon(
-                    FeatherIcons.arrowUp,
-                    color: theme.colorScheme.onPrimary,
-                    size: 22.0, 
+                    child: Icon(
+                      FeatherIcons.arrowUp,
+                      color: theme.colorScheme.onPrimary,
+                      size: 22.0, 
                   ),
                 ),
               ),
@@ -437,13 +457,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           if (!context.mounted) { return; } 
 
           if (extractedText.isNotEmpty) {
-            final apiKey = dotenv.env['OPENAI_API_KEY'];
-            if (apiKey == null || apiKey.isEmpty || apiKey == 'YOUR_API_KEY_HERE') {
-              if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar( const SnackBar(content: Text('API Key not found or invalid. Check .env file.')) ); }
-              return;
-            }
             ref.read(chatProvider.notifier).addDisplayMessage(_processingImagePlaceholder, ChatMessageSender.user);
-            ref.read(chatProvider.notifier).sendMessageAndGetResponse(extractedText, apiKey, isFromOcr: true);
+            ref.read(chatProvider.notifier).sendMessageAndGetResponse(extractedText, isFromOcr: true);
           } else {
             if(context.mounted) { ScaffoldMessenger.of(context).showSnackBar( const SnackBar(content: Text('No text found in image.')) ); }
           }
@@ -474,8 +489,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // Access ref via the state class
     final chatState = ref.watch(chatProvider);
     final messages = chatState.messages;
-    final isAiResponding = chatState.isAiResponding;
-    final isProcessingImage = chatState.isProcessingImage;
+    final isAiResponding = ref.watch(chatProvider.select((cs) => cs.isAiResponding));
+    final isProcessingImage = ref.watch(chatProvider.select((cs) => cs.isProcessingImage));
     final allSessionsAsyncValue = ref.watch(chatSessionsProvider);
 
     // Use the state's controller
@@ -483,14 +498,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     void sendMessage() {
       if (messageController.text.isNotEmpty) {
-        final apiKey = dotenv.env['OPENAI_API_KEY'];
-        if (apiKey == null || apiKey.isEmpty || apiKey == 'YOUR_API_KEY_HERE') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('API Key not found or invalid. Check .env file.')),
-          );
-          return;
-        }
-        ref.read(chatProvider.notifier).sendMessageAndGetResponse(messageController.text, apiKey);
+        ref.read(chatProvider.notifier).sendMessageAndGetResponse(messageController.text);
         messageController.clear();
       }
     }
@@ -509,46 +517,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
     });
 
-    return SafeArea(
-      bottom: false, // Prevent SafeArea from adding bottom padding, allow content behind navbar
-      child: Material(
-        type: MaterialType.transparency,
-        // Replace simple Container with Stack for blur effect
-        child: Stack(
-          children: [
-            // Layer 1: Solid Background Color - REMOVED this container
-            // Container(
-            //   color: Theme.of(context).scaffoldBackgroundColor, 
-            // ),
-            // Layer 2: Blur Effect - REMOVING this BackdropFilter and its child Container
-            // BackdropFilter(
-            //   filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-            //   child: Container(color: Colors.black.withOpacity(0.0)),
-            // ),
-            // Layer 3: Actual Page Content
-            Column(
-              children: [
-                // Add SizedBox for top padding
-                const SizedBox(height: 16.0),
-                if (messages.isEmpty && !isAiResponding && !isProcessingImage) ...[
-                   Expanded(
-                     child: Column( 
-                       children: [
-                         Expanded(
-                           child: ListView( 
-                            padding: const EdgeInsets.all(16.0),
-                             children: [
-                               _buildGreeting(context, ref),
-                               Text("Ready to simplify something complex?", style: Theme.of(context).textTheme.bodyLarge?.copyWith( color: Theme.of(context).colorScheme.onSurfaceVariant, ) ),
-                               const SizedBox(height: 16),
-                               styleSelectorWidget,
-                               chatInputBarWidget,
-                               const SizedBox(height: 24),
-                               Text("Recent Chats", style: Theme.of(context).textTheme.titleMedium?.copyWith( color: Theme.of(context).colorScheme.onBackground.withAlpha((255 * 0.85).round()), fontWeight: FontWeight.w600,), textAlign: TextAlign.center, ),
-                               const SizedBox(height: 8),
-                               _buildRecentChatsList(context, allSessionsAsyncValue, ref),
-                             ],
-                           ),
+    final pageContent = Column(
+      children: [
+        // Add SizedBox for top padding
+        // If this is a pushed screen, AppBar provides padding. Otherwise, manual padding.
+        if (widget.sessionId == null) const SizedBox(height: 16.0),
+        if (messages.isEmpty && !isAiResponding && !isProcessingImage && widget.sessionId == null) ...[ // Show greeting only for main new chat screen
+           Expanded(
+             child: Column( 
+               children: [
+                 Expanded(
+                   child: ListView( 
+                    padding: const EdgeInsets.all(16.0),
+                     children: [
+                       _buildGreeting(context, ref),
+                       Text("Ready to simplify something complex?", style: Theme.of(context).textTheme.bodyLarge?.copyWith( color: Theme.of(context).colorScheme.onSurfaceVariant, ) ),
+                       const SizedBox(height: 16),
+                       styleSelectorWidget,
+                       chatInputBarWidget,
+                       const SizedBox(height: 24),
+                       Text("Recent Chats", style: Theme.of(context).textTheme.titleMedium?.copyWith( color: Theme.of(context).colorScheme.onBackground.withAlpha((255 * 0.85).round()), fontWeight: FontWeight.w600,), textAlign: TextAlign.center, ),
+                       const SizedBox(height: 8),
+                       _buildRecentChatsList(context, allSessionsAsyncValue, ref),
+                     ],
+                   ),
           ),
         ],
       ),
@@ -589,12 +581,51 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                    chatInputBarWidget, 
                 ],
                 // Add SizedBox for bottom padding to avoid overlap with CurvedNavigationBar
-                const SizedBox(height: 75.0), // 65 for navbar + 10 for spacing
+                // This padding is only needed if there's no Scaffold providing it (i.e. not a pushed route)
+                if (widget.sessionId == null) const SizedBox(height: 75.0), // 65 for navbar + 10 for spacing
               ],
-            ),
-                ],
-              ),
-            ),
+            );
+
+    // If sessionId is provided, this screen was pushed, so wrap with a Scaffold and AppBar
+    if (widget.sessionId != null) {
+      // Try to get a title for the AppBar
+      String appBarTitle = "Chat"; // Default title
+      // We can't easily get the session title here without another async call or passing it.
+      // For now, a generic title is fine. Or, we could watch the chatProvider's messages
+      // and try to derive a title if messages are loaded and widget.sessionId matches currentSessionId.
+      // A simpler approach is to pass the title if available when navigating.
+      // For now, keeping it simple.
+
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(appBarTitle),
+          // backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Match theme
+          elevation: 1.0, // Subtle elevation
+        ),
+        body: SafeArea( // Ensure content within pushed screen respects safe areas
+          child: Material(
+             type: MaterialType.transparency, // Or specific color if needed
+             child: pageContent,
+          )
+        ),
+      );
+    }
+
+    // Otherwise, this is one of the main PageView screens, return content directly
+    // It's already wrapped in SafeArea and Material in AppShell or its direct build method.
+    // The outer SafeArea in the original code was `bottom: false`.
+    // The new SafeArea above is for the pushed route.
+    // The existing `Material` and `Stack` are part of `pageContent` now, so just return `pageContent`.
+    // However, the original structure had `SafeArea(bottom: false, child: Material(...child: Stack(...child: Column...)))`
+    // Let's replicate that for the non-pushed case.
+    return SafeArea(
+      bottom: false,
+      child: Material(
+        type: MaterialType.transparency,
+        child: Stack( // Assuming Stack was intentional for potential future overlays
+          children: [pageContent],
+        ),
+      ),
     );
   }
 
@@ -645,7 +676,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
               // onTap (navigation) is handled internally by SessionTileWidget based on multi-select state
               // but we need to ensure it navigates correctly to ChatScreen, which was already fixed in SessionTileWidget.
-            );
+              );
           },
            separatorBuilder: (context, index) { // CHANGED to SizedBox for spacing
             return const SizedBox(height: 16.0); // INCREASED height from 12.0 to 16.0

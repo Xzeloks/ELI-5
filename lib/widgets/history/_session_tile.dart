@@ -5,7 +5,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 import 'package:eli5/providers/chat_provider.dart';
 import 'package:eli5/providers/history_list_providers.dart'; // For potential future use (e.g. starred status)
-import 'package:eli5/screens/app_shell.dart'; // For navigation
+import 'package:eli5/screens/chat_screen.dart'; // Import ChatScreen for direct navigation
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
 import 'package:eli5/services/chat_db_service.dart'; // Import ChatDbService
 import 'package:eli5/main.dart'; // Corrected Import for AppColors
@@ -189,9 +189,14 @@ class SessionTileWidget extends ConsumerWidget {
             ref.read(isHistoryMultiSelectActiveProvider.notifier).state = false;
           }
         } else {
-          // Original tap action: navigate to chat
-          ref.read(chatProvider.notifier).loadSession(sessionId);
-          ref.read(appShellSelectedIndexProvider.notifier).state = 1;
+          // New tap action: navigate to a new ChatScreen instance
+          // The ChatScreen will call loadSession internally if sessionId is provided.
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(sessionId: sessionId),
+            ),
+          );
         }
       },
       onLongPress: isMultiSelectActive ? null : () { // Only allow long press if not already in multi-select mode to initiate
@@ -252,7 +257,6 @@ class SessionTileWidget extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(16),
                           padding: EdgeInsets.zero,
                         ),
-                        const SizedBox(width: 1.0),
                         SlidableAction(
                           onPressed: (context) async {
                             final bool currentlyStarred = isStarred;
@@ -274,7 +278,6 @@ class SessionTileWidget extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(16),
                           padding: EdgeInsets.zero,
                         ),
-                        const SizedBox(width: 1.0), 
                         SlidableAction(
                           onPressed: (context) => onDeleteRequested(), 
                           backgroundColor: Colors.redAccent,
