@@ -286,3 +286,25 @@ Continued refinement of the Chat and History screens, focusing on delete functio
 - **Tasks Initiated:**
     - Setting up a closed test track.
     - Understanding requirements: publishing a closed test version, enrolling 12+ testers, and testing for 14+ days. 
+
+## [Current Date] - Play Store Prep, Deep Linking, & Paywall Strategy
+
+Focused on preparing the app for Google Play Console production access and refining the authentication flow:
+
+*   **Google Play Console - Closed Testing Preparation:**
+    *   Outlined requirements for production access: closed test track, min. 12 testers, 14-day testing period.
+    *   Discussed strategy for providing Google Review access to the app with a RevenueCat paywall (test credentials).
+*   **Supabase Auth & Deep Linking Implementation (for email verification):**
+    *   **Issue:** Auth emails redirecting to `localhost:3000`.
+    *   **Solution:** Implemented deep linking for auth callbacks.
+        *   Set Supabase "Site URL" to `com.ahenyagan.eli5://auth-ca`.
+        *   Configured `AndroidManifest.xml` (Android) with an intent filter for the scheme `com.ahenyagan.eli5` and host `auth-ca`.
+        *   Configured `Info.plist` (iOS) with `CFBundleURLTypes` for the `com.ahenyagan.eli5` scheme.
+        *   **Package Migration:** Replaced the discontinued `uni_links` package with `app_links`.
+            *   Updated `pubspec.yaml` and ran `flutter pub get`.
+            *   Resolved build failure caused by `uni_links` missing Android `namespace`.
+        *   Updated `lib/widgets/auth_gate.dart` to use `AppLinks().uriLinkStream` to listen for and handle incoming deep links from Supabase for email authentication.
+*   **Paywall Design Discussion:**
+    *   Reviewed the RevenueCat paywall editor.
+    *   Decided to build a custom paywall UI in Flutter for greater flexibility, while continuing to use RevenueCat for backend subscription management.
+*   **Next Steps:** Confirm Supabase Site URL, test deep linking thoroughly, commence custom paywall UI development, and continue with Play Store closed testing procedures. 

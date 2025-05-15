@@ -68,6 +68,25 @@ Monetization (RevenueCat) and full Play Console deployment will follow now that 
 *   **Active Decisions:** Keep RevenueCat init disabled during UI stabilization and feature completion (session deletion). Focus on finalizing UI and core features before proceeding to monetization.
 
 **Current Focus (as of latest interaction):**
+*   **Google Play Console - Production Readiness & Deep Linking Implementation:**
+    *   Addressed initial requirements for applying for production access (closed test setup, tester count, testing period).
+    *   Investigated and resolved `localhost:3000` redirection issue from Supabase auth emails by implementing deep linking.
+        *   Configured Supabase "Site URL" to `com.ahenyagan.eli5://auth-ca`.
+        *   Updated Android `AndroidManifest.xml` and iOS `Info.plist` to support the custom URL scheme.
+        *   Migrated from `uni_links` to `app_links` package for handling deep links in Flutter.
+        *   Modified `AuthGate` to listen for and handle incoming authentication links via `app_links`.
+    *   Clarified handling of RevenueCat paywall for Google's app review (providing test credentials).
+*   **Paywall Strategy:**
+    *   Reviewed RevenueCat's pre-built paywall editor.
+    *   Decided to explore building a custom paywall UI within the Flutter app for greater control, while still using RevenueCat for backend purchase management.
+
+**Next Steps:**
+1.  Confirm Supabase "Site URL" is correctly and finally set.
+2.  Thoroughly test the implemented deep linking for authentication.
+3.  Begin design and implementation of the custom paywall UI.
+4.  Continue with Google Play Console closed testing requirements.
+
+**Previous Active Context (still relevant for broader goals but superseded by immediate tasks above):**
 *   **Google Play Console - Production Readiness:**
     *   The immediate task is to address the requirements for applying for production access in the Google Play Console.
     *   This involves setting up a closed test track.

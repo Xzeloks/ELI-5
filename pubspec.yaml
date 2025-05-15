@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+2
+version: 1.0.0+3
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -74,6 +74,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -95,7 +96,10 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - .env # Declare the .env file as an asset
+    - .env
+    # - assets/images/ # Remove if the folder is empty or not needed
+    # - assets/images/onboarding_welcome_bg.png # Remove specific image entry
+    - assets/icon/app_icon.png
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
@@ -124,6 +128,17 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# flutter_launcher_icons configuration
+flutter_launcher_icons:
+  android: "launcher_icon" # The name of the icon file in res/mipmap folders
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 21 # Optional: To support adaptive icons, min SDK is 26 unless support for lower is explicitly set
+  adaptive_icon_background: "#0D0D0D" # Using AppColors.nearBlack as a hex string for adaptive icon background
+  adaptive_icon_foreground: "assets/icon/app_icon.png" # Using the main app_icon.png for foreground as well
+  remove_alpha_ios: true
+  background_color_ios: "#000000" # Explicitly set background for iOS when alpha is removed
 
   # For build_runner (code generation for Riverpod)
   # path_provider: ^2.0.2 # REMOVED - Not directly used, handled by other packages if needed
