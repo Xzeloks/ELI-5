@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // Import Riverpod
 import 'package:flutter_feather_icons/flutter_feather_icons.dart'; // Import Feather Icons
+import 'package:eli5/utils/app_snackbar.dart'; // Import the AppSnackbar utility
 // import 'auth_screen.dart'; // Import for tab navigation maybe later
 // import 'login_screen.dart'; // Will be needed for navigation
 
@@ -29,30 +30,35 @@ class _SignUpFormState extends ConsumerState<SignUpForm> {
         _isLoading = true;
       });
       try {
-        await supabase.auth.signUp(
+        final AuthResponse response = await supabase.auth.signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
 
         if (mounted) {
-          // Show confirmation message regardless of immediate user data availability
-           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Sign up successful! Please check your email to confirm your account.')),
-          );
-          // Optionally, switch to Login tab or navigate differently
-          // For now, user needs to manually switch or check email and then log in.
+          // If signUp completes without an AuthException, Supabase has processed the request.
+          // This covers new users (confirmation email sent) and existing users 
+          // (confirmation email re-sent, which will log them in upon clicking).
+          // Based on extensive testing, we cannot reliably distinguish an *already confirmed* 
+          // user from a new/unconfirmed one solely from the signUp response 
+          // (emailConfirmedAt is null, and no specific "already exists" exception is consistently thrown for this case).
+          AppSnackbar.showInfo(context, 'Sign up attempt processed. Please check your email to confirm your account or log in.');
         }
       } on AuthException catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Sign up failed: ${e.message}'), backgroundColor: Colors.redAccent),
-          );
+          String errorMessage = e.message;
+          // Handle specific known errors like rate limiting
+          if (e.statusCode == 429) { 
+            errorMessage = 'Too many sign-up attempts. Please try again later.';
+          }
+          // For other AuthExceptions, display their message.
+          // We are no longer trying to specifically catch "user already exists" here because
+          // it doesn't seem to be thrown reliably for already-confirmed users during signUp.
+          AppSnackbar.showError(context, errorMessage);
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('An unexpected error occurred: ${e.toString()}'), backgroundColor: Colors.redAccent),
-          );
+          AppSnackbar.showError(context, 'An unexpected error occurred: ${e.toString()}');
         }
       }
       if (mounted) {

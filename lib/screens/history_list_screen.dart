@@ -17,6 +17,7 @@ import 'package:eli5/widgets/history/_search_bar.dart';
 import 'package:eli5/widgets/history/_filter_row.dart';
 import 'package:eli5/widgets/history/_session_tile.dart'; // Uncommented
 import 'package:eli5/widgets/history/_multi_select_app_bar.dart'; // Import the new app bar
+import 'package:eli5/utils/app_snackbar.dart'; // Corrected import for AppSnackbar
 
 class HistoryListScreen extends ConsumerWidget {
   const HistoryListScreen({super.key});
@@ -54,37 +55,20 @@ class HistoryListScreen extends ConsumerWidget {
     // 1. Optimistically update the UI by setting the pending delete ID
     ref.read(sessionPendingDeleteIdProvider.notifier).state = sessionId;
 
-    // 2. Clear existing SnackBars (optional but good practice)
-    ScaffoldMessenger.of(context).clearSnackBars();
-
-    // 3. Show SnackBar with Undo action
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    scaffoldMessenger.showSnackBar(
-      SnackBar(
-        content: const Text(
-          'Chat deleted.', 
-          style: TextStyle(color: Colors.white), // Set text color to white
-        ), 
-        backgroundColor: AppColors.inputFillDark, 
-        behavior: SnackBarBehavior.floating, 
-        margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0), // Add margin
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)), // Rounded corners
-        duration: const Duration(seconds: 4), 
-        action: SnackBarAction(
-          label: 'UNDO', // Changed label
-          textColor: Theme.of(context).colorScheme.primary, // Keep primary color for visibility
-          onPressed: () {
-            scaffoldMessenger.hideCurrentSnackBar(reason: SnackBarClosedReason.action);
-          },
-        ),
-      ),
-    ).closed.then((reason) async {
-      // 4. Check if the SnackBar was closed because Undo was pressed or it timed out
-      if (reason == SnackBarClosedReason.action) {
-        // UNDO was pressed: Clear the pending delete ID, item reappears, DON'T delete from DB
+    // 2. Show SnackBar with Undo action using the utility
+    // No need to clear SnackBars here, as showUndoableAction does it.
+    AppSnackbar.showUndoableAction(
+      context,
+      'Chat deleted.', 
+      onUndo: () {
+        // UNDO was pressed: Clear the pending delete ID, item reappears
         ref.read(sessionPendingDeleteIdProvider.notifier).state = null;
         // No database deletion call here
-      } else {
+      },
+      // Optional: customize undoLabel or duration if needed, otherwise defaults are used
+    ).closed.then((reason) async {
+      // 4. Check if the SnackBar was closed because Undo was pressed or it timed out
+      if (reason != SnackBarClosedReason.action) { // If NOT closed by pressing UNDO
         // SnackBar timed out or was dismissed otherwise - proceed with actual deletion
         try {
           await ref.read(chatDbServiceProvider).deleteChatSession(sessionId);
@@ -100,12 +84,12 @@ class HistoryListScreen extends ConsumerWidget {
           // If deletion failed, we should also clear the pending ID so the item reappears
           ref.read(sessionPendingDeleteIdProvider.notifier).state = null;
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to delete session: ${e.toString()}'), backgroundColor: Colors.redAccent),
-            );
+            // Use the AppSnackbar for error here too for consistency
+            AppSnackbar.showError(context, 'Failed to delete session: \${e.toString()}');
           }
         }
       }
+      // If reason == SnackBarClosedReason.action, the onUndo callback already handled it.
     });
 
     // Note: We don't invalidate chatSessionsProvider immediately for optimistic update.

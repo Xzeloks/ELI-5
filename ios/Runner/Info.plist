@@ -51,5 +51,18 @@
 	<string>This app needs access to your camera to take photos of text for recognition.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs access to your microphone if you intend to record videos (though not currently primary for photo-to-text).</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.ahenyagan.eli5</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.ahenyagan.eli5</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
