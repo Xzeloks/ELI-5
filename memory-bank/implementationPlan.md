@@ -146,19 +146,37 @@
     - Task: Implement Two-pane Layout for wider screens
         - Status: To Do
 
+## Phase X: Deep Linking for Authentication (New Phase or Sub-phase of Auth)
+- **Objective:** Implement deep linking to handle email authentication callbacks correctly.
+- **Key Components:**
+    - Task: Configure Supabase Site URL for deep linking (`com.ahenyagan.eli5://auth-ca`).
+        - Status: Done
+    - Task: Implement native Android deep link configuration (`AndroidManifest.xml`).
+        - Status: Done
+    - Task: Implement native iOS deep link configuration (`Info.plist`).
+        - Status: Done
+    - Task: Integrate Flutter package for deep link handling (`app_links` in `AuthGate.dart`).
+        - Status: Done
+    - Task: Test end-to-end deep linking flow for Supabase authentication.
+        - Status: To Do
+
 ## Phase 10: Monetization with RevenueCat (Post-Core Features & Deployment Readiness)
 - **Objective:** Integrate RevenueCat for subscription management once core features are stable and the app is deployment-ready.
 - **Key Components:**
     - Task: Plan subscription tiers and features.
         - Status: To Do
     - Task: Set up RevenueCat account and configure products/entitlements.
-        - Status: To Do
+        - Status: In Progress (Initial setup done, products being defined)
     - Task: Integrate RevenueCat SDK into the Flutter app.
-        - Status: To Do
-    - Task: Implement UI for displaying subscription options.
-        - Status: To Do
+        - Status: Done (`purchases_flutter`, `purchases_ui_flutter` added, basic init in `main.dart`)
+    - Task: Implement UI for displaying subscription options (`PaywallScreen.dart`).
+        - Status: Done (Initial version implemented)
+    - Task: Enhance Paywall UI with currency symbols.
+        - Status: Done
     - Task: Implement purchase flow and entitlement checking.
-        - Status: To Do
+        - Status: In Progress (Logic present in `PaywallScreen.dart`, needs sandbox testing)
+    - Task: Test RevenueCat purchase flow (Sandbox Android/iOS).
+        - Status: To Do (Guidance provided)
     - Task: Connect RevenueCat with Supabase (e.g., webhook or custom claims) to sync subscription status with user profiles.
         - Status: To Do
     - Task: Secure features based on subscription status.

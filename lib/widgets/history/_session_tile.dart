@@ -9,6 +9,7 @@ import 'package:eli5/screens/chat_screen.dart'; // Import ChatScreen for direct 
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
 import 'package:eli5/services/chat_db_service.dart'; // Import ChatDbService
 import 'package:eli5/main.dart'; // Corrected Import for AppColors
+import 'package:eli5/utils/snackbar_helper.dart'; // ADDED
 
 class SessionTileWidget extends ConsumerWidget {
   final Map<String, dynamic> sessionData;
@@ -168,9 +169,7 @@ class SessionTileWidget extends ConsumerWidget {
                   ref.invalidate(chatSessionsProvider);
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error updating star status: ${e.toString()}'), backgroundColor: Colors.redAccent)
-                    );
+                    showStyledSnackBar(context, message: 'Error updating star status: ${e.toString()}', isError: true);
                   }
                 }
               },
@@ -243,9 +242,7 @@ class SessionTileWidget extends ConsumerWidget {
                                 ref.invalidate(chatSessionsProvider);
                               } catch (e) {
                                 if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Error renaming session: ${e.toString()}'), backgroundColor: Colors.redAccent)
-                                  );
+                                  showStyledSnackBar(context, message: 'Error renaming session: ${e.toString()}', isError: true);
                                 }
                               }
                             }
@@ -265,9 +262,7 @@ class SessionTileWidget extends ConsumerWidget {
                               ref.invalidate(chatSessionsProvider);
                             } catch (e) {
                               if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error updating star status: ${e.toString()}'), backgroundColor: Colors.redAccent)
-                                );
+                                showStyledSnackBar(context, message: 'Error updating star status: ${e.toString()}', isError: true);
                               }
                             }
                           },
@@ -280,12 +275,11 @@ class SessionTileWidget extends ConsumerWidget {
                         ),
                         SlidableAction(
                           onPressed: (context) => onDeleteRequested(), 
-                          backgroundColor: Colors.redAccent,
+                          backgroundColor: Colors.red[700]!,
                           foregroundColor: Colors.white,
                           icon: FeatherIcons.trash2,
                           label: 'Delete',
-                          borderRadius: BorderRadius.circular(16),
-                          padding: EdgeInsets.zero,
+                          borderRadius: const BorderRadius.only(topRight: Radius.circular(16), bottomRight: Radius.circular(16)),
                         ),
                       ],
                     ),

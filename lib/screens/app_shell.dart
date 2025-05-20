@@ -8,12 +8,15 @@ import 'package:eli5/main.dart'; // ADDED import for AppColors
 import 'package:flutter_feather_icons/flutter_feather_icons.dart'; // Import Feather Icons
 import 'package:curved_navigation_bar/curved_navigation_bar.dart'; // Import curved_navigation_bar
 import 'dart:ui'; // Import for ImageFilter
+// import 'package:eli5/utils/app_colors.dart'; // Removed if not used directly here
 
 // Provider for managing AppShell's selected index
 final appShellSelectedIndexProvider = StateProvider<int>((ref) => 1); // Default to ChatScreen (now index 1)
 
 class AppShell extends ConsumerStatefulWidget {
-  AppShell({super.key});
+  const AppShell({super.key});
+
+  static const String routeName = '/app-shell';
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();

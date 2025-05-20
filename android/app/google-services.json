@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "384148294658",
+    "project_id": "eli5-flutter",
+    "storage_bucket": "eli5-flutter.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:384148294658:android:7d2026d61e1342f30d2b1b",
+        "android_client_info": {
+          "package_name": "com.ahenyagan.eli5"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAa-_0R0m4h7jDZiDgBRvit9s1tF9gDh64"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

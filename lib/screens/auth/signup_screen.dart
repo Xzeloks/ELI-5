@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // Import for kIsWeb
 import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // Import Riverpod
 import 'package:flutter_feather_icons/flutter_feather_icons.dart'; // Import Feather Icons
-import 'package:eli5/utils/app_snackbar.dart'; // Import the AppSnackbar utility
+import 'package:eli5/utils/snackbar_helper.dart'; // ADDED
 // import 'auth_screen.dart'; // Import for tab navigation maybe later
 // import 'login_screen.dart'; // Will be needed for navigation
 
@@ -42,7 +43,7 @@ class _SignUpFormState extends ConsumerState<SignUpForm> {
           // Based on extensive testing, we cannot reliably distinguish an *already confirmed* 
           // user from a new/unconfirmed one solely from the signUp response 
           // (emailConfirmedAt is null, and no specific "already exists" exception is consistently thrown for this case).
-          AppSnackbar.showInfo(context, 'Sign up attempt processed. Please check your email to confirm your account or log in.');
+          showStyledSnackBar(context, message: 'Sign up attempt processed. Please check your email to confirm your account or log in.');
         }
       } on AuthException catch (e) {
         if (mounted) {
@@ -54,11 +55,11 @@ class _SignUpFormState extends ConsumerState<SignUpForm> {
           // For other AuthExceptions, display their message.
           // We are no longer trying to specifically catch "user already exists" here because
           // it doesn't seem to be thrown reliably for already-confirmed users during signUp.
-          AppSnackbar.showError(context, errorMessage);
+          showStyledSnackBar(context, message: errorMessage, isError: true);
         }
       } catch (e) {
         if (mounted) {
-          AppSnackbar.showError(context, 'An unexpected error occurred: ${e.toString()}');
+          showStyledSnackBar(context, message: 'An unexpected error occurred: ${e.toString()}', isError: true);
         }
       }
       if (mounted) {
@@ -187,11 +188,22 @@ class SocialSignInButtons extends StatelessWidget {
         ),
         const SizedBox(height: 24.0),
         OutlinedButton(
-          onPressed: () {
+          onPressed: () async {
             // TODO: Implement Google Sign-In
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Google Sign-In not implemented yet.')),
-            );
+            // ScaffoldMessenger.of(context).showSnackBar(
+            //   const SnackBar(content: Text('Google Sign-In not implemented yet.')),
+            // );
+            try {
+              await Supabase.instance.client.auth.signInWithOAuth(
+                OAuthProvider.google,
+                redirectTo: kIsWeb ? null : 'com.ahenyagan.eli5://auth-ca/',
+              );
+              // AuthGate will handle navigation if successful
+            } catch (e) {
+              if (context.mounted) {
+                showStyledSnackBar(context, message: 'Google Sign-In Failed: ${e.toString()}', isError: true);
+              }
+            }
           },
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(double.infinity, 48),
@@ -200,11 +212,22 @@ class SocialSignInButtons extends StatelessWidget {
         ),
         const SizedBox(height: 12.0),
         OutlinedButton(
-           onPressed: () {
+           onPressed: () async {
             // TODO: Implement Apple Sign-In
-             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Apple Sign-In not implemented yet.')),
-            );
+            //  ScaffoldMessenger.of(context).showSnackBar(
+            //   const SnackBar(content: Text('Apple Sign-In not implemented yet.')),
+            // );
+            try {
+              await Supabase.instance.client.auth.signInWithOAuth(
+                OAuthProvider.apple,
+                redirectTo: kIsWeb ? null : 'com.ahenyagan.eli5://auth-ca/', // Ensure this redirect is configured in Supabase & Apple Dev Console
+              );
+              // AuthGate will handle navigation
+            } catch (e) {
+              if (context.mounted) {
+                showStyledSnackBar(context, message: 'Apple Sign-In Failed: ${e.toString()}', isError: true);
+              }
+            }
            },
            style: OutlinedButton.styleFrom(
             minimumSize: const Size(double.infinity, 48),

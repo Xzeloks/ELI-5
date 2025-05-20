@@ -44,47 +44,57 @@ The recent development cycle focused on significant UI polish and bug fixing acr
 
 Monetization (RevenueCat) and full Play Console deployment will follow now that the core features, API security, navigation, and UI structure are refined.
 
-*   **Recent Changes (Summary of last major cycle):**
-    *   Implemented API Key Security via Supabase Edge Function.
-    *   Overhauled Back Button Navigation.
-    *   Replaced `BottomAppBar`/`FAB` with `CurvedNavigationBar`.
-    *   Consolidated `ChatScreen`, `HistoryListScreen`, `SettingsScreen` into `AppShell`'s `PageView`.
-    *   Made `ChatScreen` the default initial screen within `AppShell`.
-    *   Removed nested `Scaffold` widgets from page views.
-    *   Ensured `CurvedNavigationBar` persists across main tabs.
-    *   Enforced dark-mode only theme, removing light theme and UI switches.
-    *   Replaced gradient background with solid color + `BackdropFilter` blur (though blur was later removed from main app shell).
-    *   Refined `CurvedNavigationBar` styling (colors, dynamic icons, selected icon background).
-    *   Fixed various bugs including navbar disappearing, `No Material widget found` errors, dependency issues, and linter warnings.
-    *   Refactored `ChatScreen` empty state layout.
-*   **Next Steps (Monetization - Upon Resuming):**
-    1.  Uncomment RevenueCat initialization in `main.dart`.
-    2.  Finalize Google Play Console setup for RevenueCat.
-    3.  Obtain public Google Play API key from RevenueCat.
-    4.  Update `main.dart` with the actual RevenueCat Google Play API key.
-    5.  Implement Paywall UI screen.
-    6.  Implement logic to fetch offerings and handle purchases.
-    7.  Integrate paywall with AuthGate based on subscription status.
-*   **Active Decisions:** Keep RevenueCat init disabled during UI stabilization and feature completion (session deletion). Focus on finalizing UI and core features before proceeding to monetization.
+**Recently Completed / Current Status (In-App Purchases & Paywall):**
 
-**Current Focus (as of latest interaction):**
-*   **Google Play Console - Production Readiness & Deep Linking Implementation:**
-    *   Addressed initial requirements for applying for production access (closed test setup, tester count, testing period).
-    *   Investigated and resolved `localhost:3000` redirection issue from Supabase auth emails by implementing deep linking.
-        *   Configured Supabase "Site URL" to `com.ahenyagan.eli5://auth-ca`.
-        *   Updated Android `AndroidManifest.xml` and iOS `Info.plist` to support the custom URL scheme.
-        *   Migrated from `uni_links` to `app_links` package for handling deep links in Flutter.
-        *   Modified `AuthGate` to listen for and handle incoming authentication links via `app_links`.
-    *   Clarified handling of RevenueCat paywall for Google's app review (providing test credentials).
-*   **Paywall Strategy:**
-    *   Reviewed RevenueCat's pre-built paywall editor.
-    *   Decided to explore building a custom paywall UI within the Flutter app for greater control, while still using RevenueCat for backend purchase management.
+*   **RevenueCat Integration & User Linking:**
+    *   Successfully linked Supabase User IDs with RevenueCat App User IDs using `Purchases.logIn()` and `Purchases.logOut()`.
+    *   Test purchases are now visible and correctly attributed in the RevenueCat sandbox environment.
+*   **Paywall Logic & Navigation:**
+    *   `AuthGate.dart` has been significantly refactored to manage user flow based on subscription status (checked via `customerInfoProvider` and the "Access" entitlement).
+    *   Navigation from `PaywallScreen.dart` post-purchase is now handled by `AuthGate` reacting to updated `CustomerInfo`.
+    *   `SettingsScreen.dart` dynamically shows "Manage Subscription" or "View Subscription Options" based on entitlement status.
+*   **Console Log Review:**
+    *   Reviewed RevenueCat debug logs, confirming successful operations and identifying areas for future attention (response verification for production, UI performance).
 
-**Next Steps:**
-1.  Confirm Supabase "Site URL" is correctly and finally set.
-2.  Thoroughly test the implemented deep linking for authentication.
-3.  Begin design and implementation of the custom paywall UI.
-4.  Continue with Google Play Console closed testing requirements.
+**Previous Work (Still Relevant Foundation):**
+*   Deep Linking Implementation for Supabase email auth.
+*   Paywall UI enhancements (currency formatting).
+*   API Key Security via Supabase Edge Function.
+*   Back Button Navigation Overhaul.
+*   **Password Reset Flow Correction:** Refined `AuthGate` logic and `NewPasswordScreen` to ensure users are correctly redirected to the login screen after a successful password reset by explicitly signing them out post-update.
+
+**Current Focus / Immediate Next Steps:**
+
+1.  **Thorough Testing of In-App Purchase Flows (using Custom Paywall):**
+    *   Confirm custom paywall (`PaywallScreen.dart`) is functioning correctly.
+    *   **New User Purchase:** Sign up, go through custom paywall, purchase, verify access and UI changes.
+2.  **Monitor RevenueCat Dashboard (Sandbox):** Continue to observe customer data, transactions, and entitlement updates in RevenueCat during testing.
+3.  **Address Minor Logged Items (Future):**
+    *   Plan to enable RevenueCat "Response Verification" before production.
+    *   Investigate and address Flutter performance warnings (skipped frames) for UI smoothness.
+4.  **Continue Google Play Console Closed Testing:** Once IAP flows are stable, prepare and submit a new build incorporating these changes to the closed test track.
+
+**Broader Goals (Post-IAP Testing):**
+*   Proceed with iOS testing for RevenueCat.
+*   Finalize any remaining UI polish.
+*   Move towards wider testing and eventual production release.
+
+**Paywall 'Try for Free' Troubleshooting & OpenAI Model Upgrades (Recent Focus):**
+
+*   **'Try for Free' Issue (Ongoing):**
+    *   Investigating why `StoreProduct.introductoryPrice` is consistently `null` for the monthly subscription package, preventing the "Try for Free" button from appearing as intended on the `PaywallScreen`.
+    *   **Primary Hypothesis:** The Google account used for testing is not considered eligible by Google Play for the "new customer acquisition" free trial offer. Prior interactions (even test purchases) can affect this.
+    *   **Key Troubleshooting Steps Undertaken:**
+        *   Enhanced logging in `PaywallScreen.dart` to clearly show `introductoryPrice` details (or lack thereof) for each package.
+        *   Confirmed the `purchases_flutter` (RevenueCat SDK) version is up-to-date (`^8.0.0`).
+        *   Re-verified Google Play Console offer configuration for the `monthly` product (specifically the `freetrial` offer ensuring it's active, price is 0, and eligibility is for new customers).
+        *   Reviewed RevenueCat's server-to-server notification setup (confirmed correct, though not directly for initial offer fetching).
+        *   Clarified that `introductoryPrice` can refer to any special intro offer (free or discounted), and the app correctly checks for `price == 0` for the "Try for Free" logic.
+    *   **Next Critical Step:** Rigorous testing using a "pristine" Google account (never used for Play Store purchases/subscriptions, especially with this app) on a clean device/emulator instance to definitively check offer eligibility.
+
+*   **OpenAI Model Upgrade (Completed & Stable):**
+    *   Upgraded models in `OpenAIService` to use `gpt-4o-mini` as the default and `gpt-4o` for potentially larger contexts/inputs.
+    *   Adjusted associated token and character count limits for content processing and API calls.
 
 **Previous Active Context (still relevant for broader goals but superseded by immediate tasks above):**
 *   **Google Play Console - Production Readiness:**
@@ -94,5 +104,5 @@ Monetization (RevenueCat) and full Play Console deployment will follow now that 
         *   Publishing a closed test version.
         *   Ensuring at least 12 test users are registered for the closed test.
         *   Conducting closed testing with these users for at least 14 days.
-*   **Troubleshooting Data Isolation & Chat Loading:**
-    *   Concurrently, investigating and resolving the issue where opening chat sessions from history results in a blank chat page. This might be related to RLS policies and how `user_id` was previously associated with messages, or a bug in the loading/display logic for historical chats. 
+*   ~~**Troubleshooting Data Isolation & Chat Loading:**~~ (RESOLVED)
+    *   ~~Concurrently, investigating and resolving the issue where opening chat sessions from history results in a blank chat page. This might be related to RLS policies and how `user_id` was previously associated with messages, or a bug in the loading/display logic for historical chats.~~ 

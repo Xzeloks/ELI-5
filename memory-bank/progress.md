@@ -1,5 +1,51 @@
 # Progress
 
+## [Current Date] - Password Reset Flow Correction
+
+*   **Issue Identified:** Users were not redirected to the login screen after successfully resetting their password via a deep link. Instead, because the Supabase session remained active after `updateUser`, `AuthGate` treated them as logged in and navigated them to the main app flow (onboarding/paywall/app shell).
+*   **Troubleshooting:**
+    *   Added detailed logging to `AuthGate` to trace `onAuthStateChange` events and the `_isInPasswordRecoveryMode` state.
+    *   Utilized `adb logcat` to capture persistent logs when the direct Flutter debug connection was lost during deep link testing.
+    *   Identified that `AuthChangeEvent.userUpdated` was correctly firing and `_isInPasswordRecoveryMode` was being set to `false`, but the active session (`session != null`) was causing the incorrect navigation.
+*   **Solution:**
+    *   Modified `NewPasswordScreen` (`lib/screens/auth/new_password_screen.dart`) to explicitly call `Supabase.instance.client.auth.signOut()` *after* a successful password update via `updateUser` and *before* navigating back to `AuthGate` (`Navigator.of(context).pushNamedAndRemoveUntil('/auth-gate', (route) => false)`).
+*   **Outcome:** After a successful password reset, the user is now correctly signed out. `AuthGate` then detects a null session and, with `_isInPasswordRecoveryMode` being false, navigates the user to `AuthScreen` for login, as intended.
+
+## [Current Date] - RevenueCat Integration, Paywall Logic & Testing
+
+This phase focused on implementing and thoroughly debugging the in-app purchase functionality using RevenueCat, integrating it with Supabase authentication, and refining the paywall display logic.
+
+*   **RevenueCat & Supabase User ID Sync:**
+    *   Successfully implemented `Purchases.logIn(supabaseUserId)` in `AuthGate.dart` upon Supabase authentication to ensure purchases are correctly attributed.
+    *   Implemented `Purchases.logOut()` in `SettingsScreen.dart` during user sign-out.
+    *   Verified through console logs that the Supabase User ID is being used as the RevenueCat App User ID.
+*   **Test Purchase Verification:**
+    *   Confirmed that test purchases made with Google Play sandbox accounts are now visible in the RevenueCat dashboard when the "Sandbox data" toggle is enabled.
+    *   Analyzed RevenueCat debug logs which showed successful receipt posting (`POST /receipts 200 OK`) and correct App User ID identification.
+*   **`AuthGate.dart` Paywall & Navigation Logic:**
+    *   Refactored `AuthGate.dart` to be a `ConsumerStatefulWidget`.
+    *   Uses `customerInfoProvider` (a `FutureProvider<CustomerInfo>`) to check the status of the "Access" entitlement.
+    *   Routes users directly to `AppShell` if subscribed.
+    *   For non-subscribed users:
+        *   Shows `AppBreakdownScreen` if not previously seen.
+        *   Then shows `PaywallScreen` if `hasSeenPaywallKey` is false.
+        *   Allows navigation to `AppShell` (free features) if paywall has been seen and dismissed.
+*   **`PaywallScreen.dart` Enhancements & Fixes:**
+    *   Removed direct navigation to `AppShell` after purchase; `AuthGate` now handles this based on `CustomerInfo` updates.
+    *   Added `ref.invalidate(customerInfoProvider)` after successful purchase and restore operations to trigger UI updates.
+    *   The entitlement ID "Access" is correctly used.
+    *   An `offeringsProvider` was created and is used to fetch available packages.
+*   **`SettingsScreen.dart` Subscription Management UI:**
+    *   Updated to use `ref.watch(customerInfoProvider)`.
+    *   Conditionally displays a "Manage Subscription" button if the "Access" entitlement is active.
+    *   Shows a "View Subscription Options" button otherwise (placeholder, to be linked to the paywall).
+*   **Log Analysis & Minor Issues Noted:**
+    *   Reviewed extensive RevenueCat debug logs, confirming most operations are behaving as expected.
+    *   Noted that "Response Verification" in RevenueCat SDK is currently `DISABLED`; recommended enabling for production.
+    *   Observed Flutter performance warnings ("Skipped frames") in logs, suggesting potential UI thread work to optimize later.
+*   **Next Steps:**
+    *   Thorough end-to-end testing of all purchase flows: new user purchase, existing user subscription check, restore purchases, and paywall dismissal for free feature access.
+
 ## [Current Date] - UI Overhaul: Bottom Navigation and Chat Screen Refinement
 
 Completed a significant UI overhaul based on user feedback and sketches, moving towards a more modern and intuitive interface:
@@ -208,7 +254,41 @@ Continued refinement of the Chat and History screens, focusing on delete functio
 - **Git Checkpoint:**
     - Created a git commit: "Checkpoint: Auth screen TabBar indicator line removed and navbar color finalized". 
 
-## [Date of Last Edits - YYYY-MM-DD] - API Key Security & Navigation Overhaul
+## [Date of Last Edits - YYYY-MM-DD] - Paywall 'Try for Free' Debugging & OpenAI Model Upgrade
+
+This period focused on troubleshooting the elusive issue of the "Try for Free" button not appearing for the monthly subscription on the paywall, alongside upgrading the underlying OpenAI models for improved chat performance and capabilities.
+
+*   **Paywall - 'Try for Free' Investigation (Ongoing):**
+    *   **Core Problem:** The `StoreProduct.introductoryPrice` field for the monthly package (identifier: `$rc_monthly`) is consistently reported as `null` by the RevenueCat SDK. This prevents the app from displaying the "Try for Free for 7 days" button, as the logic relies on this field being populated with a zero-price offer.
+    *   **Deep Dive & Analysis:**
+        *   Reviewed RevenueCat documentation and community forum posts, confirming that `introductoryPrice` being `null` is expected behavior if Google Play deems the current user ineligible for the introductory offer (e.g., free trial).
+        *   Primary hypothesis: The Google account active in the Play Store on the test device has a history (e.g., previous test purchases, even if cancelled/refunded, or interaction with other subscriptions in the app) that makes it ineligible for the "new customer acquisition" type of free trial.
+        *   Client-side code in `PaywallScreen.dart` was re-verified and deemed correct in how it checks `introductoryPrice` (specifically `introductoryPrice.price == 0`).
+    *   **Troubleshooting Steps Taken:**
+        *   Enhanced logging in `PaywallScreen.dart`'s `_buildPackageSelector` to output detailed `StoreProduct` and `introductoryPrice` information for *all* available packages, clearly identifying the package by its identifier and type.
+        *   Confirmed the `purchases_flutter` (RevenueCat SDK) is at a recent version (`^8.0.0`).
+        *   Re-verified the `freetrial` offer configuration for the `monthly` product in the Google Play Console (active, price 0, 7 days, eligibility: new customer acquisition).
+        *   Confirmed RevenueCat's server-to-server (S2S) notification setup with Google Cloud Pub/Sub is correctly configured (Topic ID: `projects/eli-5-459017/topics/Play-Store-Notifications`), though this is more for post-purchase event tracking than initial offer fetching.
+        *   Clarified that `introductoryPrice` isn't exclusive to free trials but covers any introductory pricing; the app correctly checks for `price == 0`.
+    *   **Key Recommended Next Step:** Conduct thorough testing with a completely new ("pristine") Google account on a clean device/emulator to isolate offer eligibility.
+
+*   **OpenAI Model Upgrade:**
+    *   Updated `OpenAIService.dart` to utilize newer OpenAI models.
+    *   Default model changed to `gpt-4o-mini` for general chat interactions.
+    *   `gpt-4o` is now used for processing potentially larger inputs (e.g., long web content, YouTube transcripts) to leverage its larger context window.
+    *   Adjusted internal character/token truncation limits (`_userContentTruncationCharsShort`, `_userContentTruncationCharsLong`, `_maxTokensForShortModel`, `_maxTokensForLongModel`) to align with the capabilities of these models and prevent errors.
+
+*   **App Versioning & Release Prep:**
+    *   Incremented the app version in `pubspec.yaml` to `1.0.0+6` in preparation for a new tester release on the Google Play Console.
+    *   Provided guidance on filling out release notes for the Play Console, focusing on the AI model upgrade and ongoing UI/UX refinements.
+    *   Assisted with understanding and addressing the Google Play Console's Advertising ID declaration requirements.
+
+*   **Miscellaneous:**
+    *   Investigated and explained behavior related to password reset deep links and the necessary `AndroidManifest.xml` intent filter for `login-callback` (distinct from `auth-callback`).
+    *   Briefly touched upon Android 13 `AD_ID` permission manifest entries.
+
+
+## [Date of Previous Edits] - API Key Security & Navigation Overhaul
 
 ### Implemented API Key Security (Proxy via Supabase Edge Function)
 - **Goal:** Secure the OpenAI API key by not bundling it with the client-side Flutter app.
@@ -308,3 +388,57 @@ Focused on preparing the app for Google Play Console production access and refin
     *   Reviewed the RevenueCat paywall editor.
     *   Decided to build a custom paywall UI in Flutter for greater flexibility, while continuing to use RevenueCat for backend subscription management.
 *   **Next Steps:** Confirm Supabase Site URL, test deep linking thoroughly, commence custom paywall UI development, and continue with Play Store closed testing procedures. 
+
+### Deep Linking for Supabase Authentication
+- Configured Supabase "Site URL" to `com.ahenyagan.eli5://auth-ca`.
+    - Status: Done
+- Updated `android/app/src/main/AndroidManifest.xml` with an intent filter for the custom scheme and host.
+    - Status: Done
+- Updated `ios/Runner/Info.plist` with `CFBundleURLTypes` to register the custom scheme.
+    - Status: Done
+- Successfully migrated from `uni_links` (which caused build failures due to AGP incompatibility) to `app_links` for handling deep links in Flutter.
+    - Status: Done
+- Modified `AuthGate.dart` to initialize and use `app_links` (`_appLinks.uriLinkStream`) to listen for incoming authentication links.
+    - Status: Done
+
+### Paywall UI Enhancements
+- Modified `PaywallScreen.dart` to use `NumberFormat.currency` for displaying currency symbols (e.g., $, €, ₺) instead of currency codes, with specific formatting for TRY (no decimal places, '₺' symbol).
+    - Status: Done
+
+### RevenueCat Testing Guidance
+- Provided a comprehensive guide for testing RevenueCat in-app purchases using sandbox environments on both Android (Google Play) and iOS (App Store Connect), including setup of tester accounts and verification steps.
+    - Status: Done (Guidance Provided)
+
+## [Current Date] - Google Play Console: Production Readiness
+- **Shift in Focus:** Addressed requirements for applying for production access in the Google Play Console.
+- **Tasks Initiated:**
+    - Setting up a closed test track.
+    - Understanding requirements: publishing a closed test version, enrolling 12+ testers, and testing for 14+ days. 
+
+## [Current Date] - Play Store Prep, Deep Linking, & Paywall Strategy
+
+Focused on preparing the app for Google Play Console production access and refining the authentication flow:
+
+*   **Google Play Console - Closed Testing Preparation:**
+    *   Outlined requirements for production access: closed test track, min. 12 testers, 14-day testing period.
+    *   Discussed strategy for providing Google Review access to the app with a RevenueCat paywall (test credentials).
+*   **Supabase Auth & Deep Linking Implementation (for email verification):**
+    *   **Issue:** Auth emails redirecting to `localhost:3000`.
+    *   **Solution:** Implemented deep linking for auth callbacks.
+        *   Set Supabase "Site URL" to `com.ahenyagan.eli5://auth-ca`.
+        *   Configured `AndroidManifest.xml` (Android) with an intent filter for the scheme `com.ahenyagan.eli5` and host `auth-ca`.
+        *   Configured `Info.plist` (iOS) with `CFBundleURLTypes` for the `com.ahenyagan.eli5` scheme.
+        *   **Package Migration:** Replaced the discontinued `uni_links` package with `app_links`.
+            *   Updated `pubspec.yaml` and ran `flutter pub get`.
+            *   Resolved build failure caused by `uni_links` missing Android `namespace`.
+        *   Updated `lib/widgets/auth_gate.dart` to use `AppLinks().uriLinkStream` to listen for and handle incoming deep links from Supabase for email authentication.
+*   **Paywall Design Discussion:**
+    *   Reviewed the RevenueCat paywall editor.
+    *   Decided to build a custom paywall UI in Flutter for greater flexibility, while continuing to use RevenueCat for backend subscription management.
+*   **Next Steps:** Confirm Supabase Site URL, test deep linking thoroughly, commence custom paywall UI development, and continue with Play Store closed testing procedures. 
+
+## [Current Date] - Production Readiness Review & Fixes
+
+*   **Custom Paywall Confirmation:** Confirmed that the app is utilizing the custom `PaywallScreen.dart` as intended for managing user subscriptions via RevenueCat.
+*   **Chat Loading & Data Isolation Resolved:** Addressed the issue where opening chat sessions from history sometimes resulted in a blank page. This was investigated in the context of Supabase RLS policies and Flutter data loading logic in `ChatNotifier` and `ChatDbService`.
+*   **iOS RevenueCat API Key:** Placeholder for iOS API key in `lib/main.dart` identified and highlighted for user to update with their actual key.

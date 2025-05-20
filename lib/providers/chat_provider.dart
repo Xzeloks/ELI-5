@@ -243,11 +243,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
       String contentForAI = rawInputText;
       if (determinedInputType == InputType.url) {
          if (_contentFetcherService.isYouTubeUrl(rawInputText)) {
-        final transcript = await _contentFetcherService.fetchYouTubeTranscript(rawInputText);
-        contentForAI = "The user shared this YouTube video: $rawInputText\n\nPlease ELI5 the following transcript:\n\n$transcript";
+        // Simulating transcript fetch for structure - replace with actual call
+        final transcript = await _contentFetcherService.fetchYouTubeTranscript(rawInputText); 
+        // String transcript = \"Placeholder transcript content. Replace with actual fetch.\"; // REMOVE Placeholder
+        
+        // MODIFIED: Removed \"Please ELI5\"
+        contentForAI = "The user shared this YouTube video: $rawInputText\\n\\nThe following is its transcript:\\n\\n$transcript";
          } else {
         final webContent = await _contentFetcherService.fetchAndParseUrl(rawInputText);
-        contentForAI = "The user shared this webpage: $rawInputText\n\nPlease ELI5 the following content from the webpage:\n\n$webContent";
+        // MODIFIED: Removed "Please ELI5"
+        contentForAI = "The user shared this webpage: $rawInputText\\n\\nThe following is content from the webpage:\\n\\n$webContent";
          }
       }
       // If isFromOcr is true, contentForAI is already the extracted text.

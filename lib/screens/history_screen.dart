@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/history_service.dart';
 import '../models/history_entry.dart';
+import 'package:eli5/utils/snackbar_helper.dart';
 // Consider adding intl package for better date formatting if needed
 
 class HistoryScreen extends StatefulWidget {
@@ -55,9 +56,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       await _historyService.clearHistory();
       _loadHistory(); // Refresh the list
       // Use the stored ScaffoldMessenger inside the mounted check
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(content: Text('History cleared.')),
-      );
+      showStyledSnackBar(context, message: 'History cleared.');
     }
   }
 

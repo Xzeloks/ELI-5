@@ -126,3 +126,30 @@ The conversation began with a misunderstanding of the user's current task, which
 - **Issue 2: Blank Chat Page When Opening Sessions (Current)**
     - Occurs when opening chats from history.
     - Possible causes: RLS now correctly blocking access due to mismatched `user_id`s on older messages, or an error in message loading/display logic. 
+
+## 12. Deep Linking & Paywall UI Enhancement (Current Session)
+
+- **Goal:** Implement deep linking for Supabase email authentication to resolve `localhost:3000` redirect issues and enhance paywall UI.
+
+- **Deep Linking Implementation (Supabase Auth):**
+    - **Supabase Configuration:** Successfully updated the Supabase "Site URL" to the custom scheme `com.ahenyagan.eli5://auth-ca`.
+    - **Native Android Setup:** Added the necessary `<intent-filter>` to `android/app/src/main/AndroidManifest.xml` to handle the `com.ahenyagan.eli5` scheme and `auth-ca` host.
+    - **Native iOS Setup:** Added `CFBundleURLTypes` to `ios/Runner/Info.plist` to register the `com.ahenyagan.eli5` scheme.
+    - **Flutter Integration (`app_links`):
+        - Identified that the `uni_links` package was causing build failures due to incompatibility with newer Android Gradle Plugin versions (namespace error).
+        - **Migrated to `app_links`:** Removed `uni_links` and added `app_links` (`^6.4.0`) to `pubspec.yaml`.
+        - **Updated `AuthGate.dart`:** Refactored to use `AppLinks` for handling incoming URI links. Initialized `AppLinks` and subscribed to its `uriLinkStream` to process authentication tokens from deep links for both initial and subsequent links.
+
+- **Paywall UI Enhancement (`PaywallScreen.dart`):
+    - **Currency Display:** Modified the `PaywallScreen` to display currency symbols (e.g., $, €, ₺) instead of currency codes.
+    - Used `NumberFormat.currency` from the `intl` package for formatting.
+    - Ensured specific formatting for Turkish Lira (TRY): no decimal places and the '₺' symbol.
+
+- **RevenueCat Testing Guidance:**
+    - Provided a comprehensive guide on how to test RevenueCat in-app purchases using sandbox environments for both Android (Google Play Console testers) and iOS (App Store Connect sandbox testers).
+    - Detailed steps for setting up test accounts, build deployment, making test purchases, and verification through app logs and the RevenueCat dashboard.
+
+- **Next Immediate Steps:**
+    - Test the app build with the `app_links` implementation to ensure it runs without issues.
+    - Test the actual deep link authentication flow.
+    - Begin sandbox testing of RevenueCat purchases. 

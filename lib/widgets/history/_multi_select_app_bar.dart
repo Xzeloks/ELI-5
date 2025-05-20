@@ -4,6 +4,7 @@ import 'package:eli5/providers/history_list_providers.dart';
 import 'package:eli5/providers/chat_provider.dart'; // Import for chatDbServiceProvider and chatSessionsProvider
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
 import 'package:eli5/main.dart'; // For AppColors
+import 'package:eli5/utils/snackbar_helper.dart'; // ADDED
 
 class MultiSelectAppBar extends ConsumerStatefulWidget implements PreferredSizeWidget {
   const MultiSelectAppBar({super.key});
@@ -73,16 +74,12 @@ class _MultiSelectAppBarState extends ConsumerState<MultiSelectAppBar> {
                          // This might happen if chatSessionsProvider hasn't loaded or is empty.
                          // Or if there was an error loading sessions initially.
                         print("[MultiSelectAppBar] Star: Could not get session data to determine starred state.");
-                        ScaffoldMessenger.of(context).showSnackBar(
-                           const SnackBar(content: Text('Could not determine current starred state. Please try again.')),
-                        );
+                        showStyledSnackBar(context, message: 'Could not determine current starred state. Please try again.');
                         return;
                     }
                     if (sessionsAsyncValue is AsyncLoading) {
                         print("[MultiSelectAppBar] Star: Session data is still loading. Please wait.");
-                        ScaffoldMessenger.of(context).showSnackBar(
-                           const SnackBar(content: Text('Session data is loading. Please wait and try again.')),
-                        );
+                        showStyledSnackBar(context, message: 'Session data is loading. Please wait and try again.');
                         return;
                     }
 
@@ -92,9 +89,7 @@ class _MultiSelectAppBarState extends ConsumerState<MultiSelectAppBar> {
                         // This case might occur if chatSessionsProvider is stale or some selected IDs are not in the current list.
                         // It's a bit of an edge case but good to be aware of.
                         print("[MultiSelectAppBar] Star: Mismatch between selected IDs and found session data.");
-                        ScaffoldMessenger.of(context).showSnackBar(
-                           const SnackBar(content: Text('Error identifying selected sessions. Please try again.')),
-                        );
+                        showStyledSnackBar(context, message: 'Error identifying selected sessions. Please try again.');
                         return;
                     }
 
@@ -115,24 +110,10 @@ class _MultiSelectAppBarState extends ConsumerState<MultiSelectAppBar> {
                       container.invalidate(chatSessionsProvider);
 
                       scaffoldMessenger.clearSnackBars();
-                      scaffoldMessenger.showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '${currentSelectedIds.length} session(s) ${newStarredState ? "starred" : "unstarred"}.',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          backgroundColor: AppColors.inputFillDark,
-                          behavior: SnackBarBehavior.floating,
-                          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-                          duration: const Duration(seconds: 3),
-                        ),
-                      );
+                      showStyledSnackBar(context, message: '${currentSelectedIds.length} session(s) ${newStarredState ? "starred" : "unstarred"}.');
                     } catch (e) {
                       print("[MultiSelectAppBar] Star: Error updating starred status: ${e.toString()}");
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error updating starred status: ${e.toString()}'), backgroundColor: Colors.redAccent),
-                    );
+                    showStyledSnackBar(context, message: 'Error updating starred status: ${e.toString()}', isError: true);
                     }
                   } : null, // Disable if nothing selected
                 ),
@@ -179,71 +160,40 @@ class _MultiSelectAppBarState extends ConsumerState<MultiSelectAppBar> {
                       
                       // 3. Show SnackBar with Undo
                       scaffoldMessenger.clearSnackBars(); // Clear any existing snackbars
-                      scaffoldMessenger.showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '${currentSelectedIds.length} session(s) deleted.',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          backgroundColor: AppColors.inputFillDark,
-                          behavior: SnackBarBehavior.floating,
-                          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-                          duration: const Duration(seconds: 4), // Same as single delete undo
-                          action: SnackBarAction(
-                            label: 'UNDO',
-                            textColor: theme.colorScheme.primary,
-                            onPressed: () {
-                              print("[MultiSelectAppBar] UNDO action pressed.");
-
-                              final List<String> currentPendingIds = container.read(batchSessionsPendingDeleteProvider);
-                              print("[MultiSelectAppBar] UNDO: Current batchSessionsPendingDeleteProvider length: ${currentPendingIds.length}");
-                              
-                              container.read(batchSessionsPendingDeleteProvider.notifier).state = [];
-                              final List<String> newPendingIds = container.read(batchSessionsPendingDeleteProvider);
-                              print("[MultiSelectAppBar] UNDO: batchSessionsPendingDeleteProvider cleared. New length: ${newPendingIds.length}");
-                              
-                              print("[MultiSelectAppBar] UNDO: Invalidating chatSessionsProvider...");
-                              container.invalidate(chatSessionsProvider);
-                              print("[MultiSelectAppBar] UNDO: chatSessionsProvider invalidated.");
-                              
-                              scaffoldMessenger.hideCurrentSnackBar(reason: SnackBarClosedReason.action);
-                            },
-                          ),
+                      showStyledSnackBar(
+                        context,
+                        message: '${currentSelectedIds.length} session(s) deleted.',
+                        duration: const Duration(seconds: 4),
+                        action: SnackBarAction(
+                          label: 'UNDO',
+                          textColor: AppColors.kopyaPurple, // Using AppColor for consistency
+                          onPressed: () {
+                            print("[MultiSelectAppBar] UNDO action pressed.");
+                            container.read(batchSessionsPendingDeleteProvider.notifier).state = [];
+                            container.invalidate(chatSessionsProvider);
+                          },
                         ),
-                      ).closed.then((reason) async {
-                        if (!mounted) return; // Check mounted before async logic in .then()
+                      ).then((reason) async { // NOW we can use .then() on the returned Future
+                        if (!mounted) return; 
 
                         if (reason != SnackBarClosedReason.action) {
-                          // IMPORTANT: Read the current state of batchSessionsPendingDeleteProvider NOW.
-                          // These are the IDs to actually delete if UNDO was not pressed.
                           final List<String> actualIdsToDeleteNow = ref.read(batchSessionsPendingDeleteProvider);
-
                           if (actualIdsToDeleteNow.isNotEmpty) { 
                              try {
                                 await ref.read(chatDbServiceProvider).deleteChatSessions(actualIdsToDeleteNow);
-                                if (!mounted) return; // Check after await
+                                if (!mounted) return; 
                                 ref.invalidate(chatSessionsProvider); 
                              } catch (e) {
                                 if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error deleting sessions: ${e.toString()}'), backgroundColor: Colors.redAccent),
-                                );
-                                // On error, items remain in batchSessionsPendingDeleteProvider, visually hidden.
-                                // Consider clearing them here to make them reappear if that's desired UX on failure.
+                                showStyledSnackBar(context, message: 'Error deleting sessions: ${e.toString()}', isError: true);
                              } finally {
-                                // After deletion attempt (success or fail), if it wasn't undone (i.e., we are in this block),
-                                // clear these specific IDs from the pending list.
                                 if (!mounted) return;
                                 ref.read(batchSessionsPendingDeleteProvider.notifier).update((currentPendingIds) {
-                                  // Filter out the IDs that were processed in this deletion attempt.
                                   return currentPendingIds.where((id) => !actualIdsToDeleteNow.contains(id)).toList();
                                 });
                              }
                           }
                         }
-                        // If reason WAS SnackBarClosedReason.action, UNDO was pressed.
-                        // The onPressed of UNDO already cleared batchSessionsPendingDeleteProvider. So nothing more to do here.
                       });
                     }
                   } : null, // Disable if nothing selected

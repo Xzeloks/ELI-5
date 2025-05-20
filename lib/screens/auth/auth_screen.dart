@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'signup_screen.dart'; // Import the file containing SignUpForm
 import 'login_screen.dart'; // Import the file containing LoginForm
+import 'package:supabase_flutter/supabase_flutter.dart';
 // TODO: Import Login and Signup form widgets once created/extracted - DONE
 
 class AuthScreen extends ConsumerStatefulWidget {
@@ -89,6 +90,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                   ],
                 ),
               ),
+              // We can add Apple Sign-In button here later
             ],
           ),
         ),

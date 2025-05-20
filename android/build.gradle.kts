@@ -1,3 +1,19 @@
+buildscript {
+    val kotlin_version by extra("2.0.0") // Define Kotlin version
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+        // The google-services plugin is already applied below via the plugins block, which is fine.
+    }
+}
+
+plugins {
+    id("com.google.gms.google-services") version "4.4.2" apply false
+}
+
 allprojects {
     repositories {
         google()

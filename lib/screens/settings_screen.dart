@@ -7,6 +7,9 @@ import 'package:url_launcher/url_launcher.dart'; // Added import
 import 'package:purchases_flutter/purchases_flutter.dart'; // Added RevenueCat import
 import 'dart:io'; // For Platform.isIOS or Platform.isAndroid
 import 'package:eli5/providers/chat_provider.dart'; // For chatProvider
+import 'package:eli5/providers/revenuecat_provider.dart'; // Import the new provider
+import 'package:eli5/utils/snackbar_helper.dart'; // ADDED
+import 'package:eli5/screens/paywall_screen.dart'; // ADDED for navigation
 // Removed incorrect imports for settings_provider and auth_provider
 
 class SettingsScreen extends ConsumerWidget {
@@ -19,9 +22,7 @@ class SettingsScreen extends ConsumerWidget {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not launch $urlString')),
-        );
+        showStyledSnackBar(context, message: 'Could not launch $urlString', isError: true);
       }
     }
   }
@@ -30,6 +31,8 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     try {
       await Supabase.instance.client.auth.signOut();
+      await Purchases.logOut();
+      print('RevenueCat: Logged out');
 
       // Invalidate providers that hold user-specific data
       ref.invalidate(chatSessionsProvider); 
@@ -38,22 +41,64 @@ class SettingsScreen extends ConsumerWidget {
       ref.read(chatProvider.notifier).clearCurrentSessionId(); // Also clear any active chat session from the previous user
 
       if (context.mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Successfully logged out.')),
-        );
+        showStyledSnackBar(context, message: 'Successfully logged out.');
         // AuthGate should handle navigation
       }
     } on AuthException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Logout failed: ${e.message}'), backgroundColor: Colors.redAccent),
-        );
+        showStyledSnackBar(context, message: 'Logout failed: ${e.message}', isError: true);
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An unexpected error occurred during logout: ${e.toString()}'), backgroundColor: Colors.redAccent),
+        showStyledSnackBar(context, message: 'An unexpected error occurred during logout: ${e.toString()}', isError: true);
+      }
+    }
+  }
+
+  // Method to handle password reset for logged-in user
+  Future<void> _resetPassword(BuildContext context) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.email == null) {
+      showStyledSnackBar(context, message: 'Could not identify user. Please log in again.', isError: true);
+      return;
+    }
+
+    // It's good practice to ask for confirmation before sending a reset email
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Reset Password?'),
+          content: Text('A password reset link will be sent to ${user.email}.\nDo you want to continue?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+            ),
+            TextButton(
+              child: const Text('Send Link'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+            ),
+          ],
         );
+      },
+    );
+
+    if (confirmed == true) {
+      try {
+        await Supabase.instance.client.auth.resetPasswordForEmail(
+          user.email!,
+          // IMPORTANT: Configure this redirect URL in your Supabase dashboard under Auth -> URL Configuration -> Redirect URLs
+          // It should also be handled by your app's deep linking setup.
+          redirectTo: 'com.ahenyagan.eli5://login-callback?type=recovery', 
+        );
+        if (context.mounted) {
+          showStyledSnackBar(context, message: 'Password reset link sent to ${user.email}. Please check your inbox.', duration: const Duration(seconds: 5));
+        }
+      } catch (e) {
+        if (context.mounted) {
+          showStyledSnackBar(context, message: 'Failed to send password reset link: ${e.toString()}', isError: true, duration: const Duration(seconds: 5));
+        }
       }
     }
   }
@@ -96,51 +141,101 @@ class SettingsScreen extends ConsumerWidget {
             ),
             // const Divider(height: 32, thickness: 0.5), // Removed
 
-            // Subscription Section
-            // _buildSectionTitle(context, 'Subscription'),
-            // _buildSettingsListTile(
-            //   context,
-            //   icon: FeatherIcons.creditCard,
-            //   title: 'Manage Subscription',
-            //   onTap: () async {
-            //     try {
-            //       final customerInfo = await Purchases.getCustomerInfo();
-            //       String? managementURL = customerInfo.managementURL;
+            // Account Management Section (New or merged with existing 'Account')
+            if (user != null) ...[
+              _buildSectionTitle(context, 'Account Management'),
+              _buildSettingsListTile(
+                context,
+                icon: FeatherIcons.lock,
+                title: 'Reset Password',
+                onTap: () {
+                  _resetPassword(context);
+                },
+              ),
+            ],
 
-            //       if (managementURL != null && managementURL.isNotEmpty) {
-            //         _launchURL(context, managementURL);
-            //       } else {
-            //         // Fallback to store-specific URLs
-            //         String storeURL = '';
-            //         if (Platform.isIOS) {
-            //           storeURL = 'https://apps.apple.com/account/subscriptions';
-            //         } else if (Platform.isAndroid) {
-            //           storeURL = 'https://play.google.com/store/account/subscriptions';
-            //         } else {
-            //            if (context.mounted) {
-            //             ScaffoldMessenger.of(context).showSnackBar(
-            //               const SnackBar(content: Text('Subscription management not available on this platform.')),
-            //             );
-            //           }
-            //           return;
-            //         }
-            //         _launchURL(context, storeURL);
-            //       }
-            //     } catch (e) {
-            //       if (context.mounted) {
-            //         ScaffoldMessenger.of(context).showSnackBar(
-            //           SnackBar(content: Text('Could not open subscription management: ${e.toString()}')),
-            //         );
-            //         // As a last resort, try the generic Play Store subscription link for Android if error occurred before platform check.
-            //         if (Platform.isAndroid) {
-            //            _launchURL(context, 'https://play.google.com/store/account/subscriptions');
-            //         } else if (Platform.isIOS) {
-            //            _launchURL(context, 'https://apps.apple.com/account/subscriptions');
-            //         }
-            //       }
-            //     }
-            //   },
-            // ),
+            // Subscription Section
+            _buildSectionTitle(context, 'Subscription'),
+            ref.watch(customerInfoProvider).when(
+              data: (customerInfo) {
+                // Use the correct entitlement ID from RevenueCat
+                final bool isSubscribed = customerInfo.entitlements.all['Access']?.isActive ?? false;
+                
+                if (isSubscribed) {
+                  return _buildSettingsListTile(
+                    context,
+                    icon: FeatherIcons.creditCard,
+                    title: 'Manage Subscription',
+                    onTap: () async {
+                      try {
+                        // final customerInfo = await Purchases.getCustomerInfo(); // Already have it
+                        String? managementURL = customerInfo.managementURL;
+
+                        if (managementURL != null && managementURL.isNotEmpty) {
+                          _launchURL(context, managementURL);
+                        } else {
+                          // Fallback to store-specific URLs
+                          String storeURL = '';
+                          if (Platform.isIOS) {
+                            storeURL = 'https://apps.apple.com/account/subscriptions';
+                          } else if (Platform.isAndroid) {
+                            storeURL = 'https://play.google.com/store/account/subscriptions';
+                          } else {
+                             if (context.mounted) {
+                              showStyledSnackBar(context, message: 'Subscription management not available on this platform.', isError: true);
+                            }
+                            return;
+                          }
+                          _launchURL(context, storeURL);
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          showStyledSnackBar(context, message: 'Could not open subscription management: ${e.toString()}', isError: true);
+                          // As a last resort, try the generic Play Store subscription link for Android if error occurred before platform check.
+                          if (Platform.isAndroid) {
+                             _launchURL(context, 'https://play.google.com/store/account/subscriptions');
+                          } else if (Platform.isIOS) {
+                             _launchURL(context, 'https://apps.apple.com/account/subscriptions');
+                          }
+                        }
+                      }
+                    },
+                  );
+                } else {
+                  // Optionally, show a button to subscribe or some info if not subscribed
+                  return _buildSettingsListTile(
+                    context,
+                    icon: FeatherIcons.shoppingCart, // Or some other icon
+                    title: 'View Subscription Options', // Or 'Subscribe Now'
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PaywallScreen(
+                            onContinueToApp: () {
+                              // If PaywallScreen is dismissed without purchase from Settings,
+                              // simply pop back to SettingsScreen.
+                              if (Navigator.canPop(context)) {
+                                Navigator.pop(context);
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16.0),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (err, stack) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                child: Center(child: Text('Error: Could not load subscription status.', style: TextStyle(color: theme.colorScheme.error))),
+              ),
+            ),
+            
             // const Divider(height: 32, thickness: 0.5), // Removed
 
             // Help & Feedback Section
@@ -235,9 +330,7 @@ class SettingsScreen extends ConsumerWidget {
                   onPressed: () {
                      // Ideally navigate to AuthScreen or show modal
                      print("Navigate to Auth Screen triggered from Settings");
-                     ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Auth screen navigation not implemented yet.')),
-                      );
+                     showStyledSnackBar(context, message: 'Auth screen navigation not implemented yet.', isError: true);
                   },
                   // Add style if needed
                 ),
@@ -275,9 +368,7 @@ Widget _buildSettingsListTile(BuildContext context, {required IconData icon, req
     trailing: const Icon(FeatherIcons.chevronRight),
     onTap: onTap ?? () {
       // Default action if onTap is null
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$title tapped. Action not yet implemented.')),
-      );
+      showStyledSnackBar(context, message: '$title tapped. Action not yet implemented.');
     },
     contentPadding: EdgeInsets.zero,
   );

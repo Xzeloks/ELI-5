@@ -17,6 +17,7 @@ import 'dart:ui'; // Import for ImageFilter
 import 'package:eli5/widgets/history/_session_tile.dart'; // ADDED import for SessionTileWidget
 import 'package:eli5/providers/history_list_providers.dart'; // ADDED for sessionPendingDeleteIdProvider
 import 'package:eli5/services/chat_db_service.dart'; // Ensure ChatDbService is imported
+import 'package:eli5/utils/snackbar_helper.dart'; // ADDED
 // import 'dart:math'; // For min function - already in chat_provider if needed there, or ensure it's imported if used directly here
 
 // Helper to identify the special "processing image" message
@@ -460,17 +461,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ref.read(chatProvider.notifier).addDisplayMessage(_processingImagePlaceholder, ChatMessageSender.user);
             ref.read(chatProvider.notifier).sendMessageAndGetResponse(extractedText, isFromOcr: true);
           } else {
-            if(context.mounted) { ScaffoldMessenger.of(context).showSnackBar( const SnackBar(content: Text('No text found in image.')) ); }
+            if(context.mounted) { showStyledSnackBar(context, message: 'No text found in image.'); }
           }
         } else {
           ref.read(chatProvider.notifier).setProcessingImageState(false);
           if (!context.mounted) { return; }
-          if(context.mounted) { ScaffoldMessenger.of(context).showSnackBar( const SnackBar(content: Text('No image selected.')) ); }
+          if(context.mounted) { showStyledSnackBar(context, message: 'No image selected.'); }
         }
       } catch (e) {
         ref.read(chatProvider.notifier).setProcessingImageState(false);
         if (!context.mounted) { return; }
-        if(context.mounted) { ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Error processing image: $e')) ); }
+        if(context.mounted) { showStyledSnackBar(context, message: 'Error processing image: $e', isError: true); }
     }
   }
 
@@ -684,7 +685,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
       },
       loading: () => const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())), // Keep simple loader
-      error: (err, stack) => Center(child: Padding(padding: EdgeInsets.all(16.0), child: Text("Error loading recent chats: ${err.toString()}"))),
+      error: (err, stack) => Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text("Error loading recent chats: ${err.toString()}"))),
     );
   }
 
@@ -694,38 +695,53 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // 1. Optimistically update the UI by setting the pending delete ID
     ref.read(sessionPendingDeleteIdProvider.notifier).state = sessionId;
 
-    // 2. Clear existing SnackBars
-    ScaffoldMessenger.of(context).clearSnackBars();
+    // 2. Clear existing SnackBars - showStyledSnackBar handles this.
+    // ScaffoldMessenger.of(context).clearSnackBars(); 
 
     // 3. Show SnackBar with Undo action
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    scaffoldMessenger.showSnackBar(
-      SnackBar(
-        content: const Text(
-          'Chat deleted.', 
-          style: TextStyle(color: Colors.white), // Consistent style
-        ), 
-        backgroundColor: AppColors.inputFillDark, // Consistent style
-        behavior: SnackBarBehavior.floating, 
-        margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-        duration: const Duration(seconds: 4), 
-        action: SnackBarAction(
-          label: 'UNDO',
-          textColor: Theme.of(context).colorScheme.primary,
-          onPressed: () {
-            // HideCurrentSnackBar is called by the framework when action is pressed.
-            // We just need to ensure the state is reverted.
-          },
-        ),
+    // final scaffoldMessenger = ScaffoldMessenger.of(context); // Not needed if using helper
+    // scaffoldMessenger.showSnackBar(
+    //   SnackBar(
+    //     content: const Text(
+    //       'Chat deleted.', 
+    //       style: TextStyle(color: Colors.white), // Consistent style
+    //     ), 
+    //     backgroundColor: AppColors.inputFillDark, // Consistent style
+    //     behavior: SnackBarBehavior.floating, 
+    //     margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+    //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+    //     duration: const Duration(seconds: 4), 
+    //     action: SnackBarAction(
+    //       label: 'UNDO',
+    //       textColor: Theme.of(context).colorScheme.primary,
+    //       onPressed: () {
+    //         // HideCurrentSnackBar is called by the framework when action is pressed.
+    //         // We just need to ensure the state is reverted.
+    //       },
+    //     ),
+    //   ),
+    // ).closed.then((reason) async {
+    showStyledSnackBar(
+      context,
+      message: 'Chat deleted.',
+      duration: const Duration(seconds: 4),
+      action: SnackBarAction(
+        label: 'UNDO',
+        textColor: AppColors.kopyaPurple, // Use AppColor for consistency
+        onPressed: () {
+          // Action for UNDO: Clear pending delete ID
+          ref.read(sessionPendingDeleteIdProvider.notifier).state = null;
+          // SnackBar is hidden automatically by SnackBarAction
+        },
       ),
-    ).closed.then((reason) async {
+    ).then((reason) async {
       if (!context.mounted) return; // Check mounted before proceeding
 
       // 4. Check if the SnackBar was closed because Undo was pressed or it timed out
       if (reason == SnackBarClosedReason.action) {
         // UNDO was pressed: Clear the pending delete ID, item reappears
-        ref.read(sessionPendingDeleteIdProvider.notifier).state = null;
+        // The action's onPressed already did this.
+        // ref.read(sessionPendingDeleteIdProvider.notifier).state = null;
       } else {
         // SnackBar timed out or was dismissed otherwise - proceed with actual deletion
         try {
@@ -738,9 +754,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         } catch (e) {
           ref.read(sessionPendingDeleteIdProvider.notifier).state = null; // Revert UI on error
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to delete session: $e'), backgroundColor: Colors.redAccent),
-            );
+            // ScaffoldMessenger.of(context).showSnackBar(
+            //   SnackBar(content: Text('Failed to delete session: $e'), backgroundColor: Colors.redAccent),
+            // );
+            showStyledSnackBar(context, message: 'Failed to delete session: $e', isError: true);
           }
         }
       }

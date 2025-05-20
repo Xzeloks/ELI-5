@@ -106,16 +106,16 @@ class OpenAIService {
     String systemPromptContent;
     switch (style) {
       case SimplificationStyle.eli5:
-        systemPromptContent = 'You are ELI5 Bot, an expert at explaining complex topics simply. When a user provides text or asks a question, explain it like they are 5 years old. Maintain this persona throughout the conversation.';
+        systemPromptContent = 'You are ELI5 Bot, an expert at explaining complex topics simply. When a user provides text or asks a question, explain it like they are 5 years old. If the input is unclear or seems unreadable, first try to infer the general topic or question. Then, provide your ELI5 explanation based on that inference, perhaps mentioning you\'ve made an assumption due to the input quality. Maintain this persona throughout the conversation.';
         break;
       case SimplificationStyle.summary:
-        systemPromptContent = 'You are a helpful assistant. Provide a comprehensive yet clear summary of the user\'s input or the main points of the conversation. Ensure all key aspects are covered without excessive detail.';
+        systemPromptContent = 'You are a helpful assistant. Provide a comprehensive yet clear summary of the user\'s input or the main points of the conversation. Ensure all key aspects are covered without excessive detail. If the input is unclear or seems unreadable, first try to infer the general topic. Then, provide your summary based on that inference, and you can state that your summary is based on an interpretation of the input.';
         break;
       case SimplificationStyle.expert:
-        systemPromptContent = 'You are a knowledgeable expert. Provide a detailed and nuanced explanation in response to the user\'s input. Assume some prior knowledge and use appropriate terminology. If the input is a question, answer it comprehensively from an expert standpoint.';
+        systemPromptContent = 'You are a knowledgeable expert. Provide a detailed and nuanced explanation in response to the user\'s input. Assume some prior knowledge and use appropriate terminology. If the input is a question, answer it comprehensively from an expert standpoint. If the input is unclear or seems unreadable, first attempt to deduce the underlying subject or query. Then, deliver your expert explanation based on this deduction, and you may note that your response is an inference due to the nature of the input.';
         break;
       default: // Fallback to ELI5
-        systemPromptContent = 'You are ELI5 Bot, an expert at explaining complex topics simply. When a user provides text or asks a question, explain it like they are 5 years old. Maintain this persona throughout the conversation.';
+        systemPromptContent = 'You are ELI5 Bot, an expert at explaining complex topics simply. When a user provides text or asks a question, explain it like they are 5 years old. If the input is unclear or seems unreadable, first try to infer the general topic or question. Then, provide your ELI5 explanation based on that inference, perhaps mentioning you\'ve made an assumption due to the input quality. Maintain this persona throughout the conversation.';
     }
 
     final systemMessage = {
@@ -137,21 +137,31 @@ class OpenAIService {
     }
 
     // Determine model and truncation limits based on content length
-    String modelName = 'gpt-3.5-turbo'; // Default model
-    int characterLimitForTruncation = 12000; // Default for 4k model's content portion (approx 3k tokens for content)
+    String modelName = 'gpt-4o-mini'; // UPDATED: Default to gpt-4o-mini
+    // Approx 120k tokens for content (128k total context - system prompt - response tokens)
+    // 120,000 tokens * ~3.5 chars/token (being conservative) = 420,000 characters
+    int characterLimitForTruncation = 400000; 
 
-    // Threshold to consider switching to 16k model
-    const int thresholdToConsider16k = 12001; // If user content is more than 4k model's typical capacity for it
-    // Max character length for content portion for 16k model (approx 14k tokens for content)
-    const int characterLimitFor16kContent = 56000; 
+    // Threshold to consider switching to a larger model if gpt-4o-mini proves insufficient for extreme cases
+    // or if we want to give very large inputs to gpt-4o specifically.
+    // For now, gpt-4o-mini has a large context, so this threshold might not be strictly needed for context size alone.
+    const int thresholdToConsiderLargerModel = 350000; // Example threshold, can be adjusted
+    // Max character length for content portion for gpt-4o (if we decide to use it for larger inputs)
+    // Also around 120k tokens for content -> ~420,000 characters
+    const int characterLimitForLargerModelContent = 400000; 
 
-    if (userContentForApi.length >= thresholdToConsider16k) {
-      modelName = 'gpt-3.5-turbo-16k';
-      characterLimitForTruncation = characterLimitFor16kContent;
-      print("[OpenAIService] User content length (${userContentForApi.length} chars) is high. Attempting to use $modelName. New truncation limit: $characterLimitForTruncation chars.");
+    // Optional: Logic to switch to gpt-4o for very large inputs if desired.
+    // For now, gpt-4o-mini should handle large contexts well. If you find a need to differentiate:
+    /*
+    if (userContentForApi.length >= thresholdToConsiderLargerModel) {
+      modelName = 'gpt-4o'; // Switch to gpt-4o for very large inputs
+      characterLimitForTruncation = characterLimitForLargerModelContent;
+      print("[OpenAIService] User content length (${userContentForApi.length} chars) is very high. Attempting to use $modelName. New truncation limit: $characterLimitForTruncation chars.");
     } else {
       print("[OpenAIService] User content length (${userContentForApi.length} chars). Using default $modelName. Truncation limit: $characterLimitForTruncation chars.");
     }
+    */
+    print("[OpenAIService] Using model: $modelName. User content length: ${userContentForApi.length} chars. Truncation limit: $characterLimitForTruncation chars.");
 
     if (userContentForApi.length > characterLimitForTruncation) {
       print("[OpenAIService] User content is too long for chosen model $modelName (${userContentForApi.length} chars). Truncating to $characterLimitForTruncation chars.");

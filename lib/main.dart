@@ -72,24 +72,33 @@ Future<void> main() async {
   );
 
   // Initialize RevenueCat
-  // try {
-  //   await Purchases.setLogLevel(LogLevel.debug); // Optional: for debugging
-  //   // TODO: Replace with your actual RevenueCat API keys
-  //   String revenueCatApiKey;
-  //   if (Platform.isAndroid) {
-  //     revenueCatApiKey = "goog_cDDinrdQJBPDaEiLIRWboxoywPd"; // Replace with your Google Play API key
-  //   } else if (Platform.isIOS) {
-  //     revenueCatApiKey = "YOUR_APP_STORE_API_KEY_HERE"; // Replace with your App Store API key
-  //   } else {
-  //     // Handle other platforms or throw an error if unsupported
-  //     throw Exception("Unsupported platform for RevenueCat initialization");
-  //   }
-  //   await Purchases.configure(PurchasesConfiguration(revenueCatApiKey));
-  //   print('RevenueCat configured successfully.');
-  // } catch (e) {
-  //   print('Error configuring RevenueCat: $e');
-  //   // Handle error appropriately, perhaps show a message to the user or disable paywall features
-  // }
+  try {
+    await Purchases.setLogLevel(LogLevel.debug); // Optional: for debugging
+    // TODO: Replace with your actual RevenueCat API keys if different
+    String revenueCatApiKey;
+    if (Platform.isAndroid) {
+      revenueCatApiKey = "goog_cDDinrdQJBPDaEiLIRWboxoywPd"; // Ensure this is your Google Play API key
+    } else if (Platform.isIOS) {
+      // revenueCatApiKey = "YOUR_APP_STORE_API_KEY_HERE"; // Replace with your App Store API key
+      revenueCatApiKey = "PASTE_YOUR_IOS_APP_STORE_API_KEY_HERE"; // <<--- IMPORTANT: Replace with your actual App Store API key from RevenueCat
+      // If you don't have iOS setup yet, you might want to conditionally not throw or assign a placeholder
+      // For now, assuming you might have one or will add one.
+    } else {
+      // Handle other platforms or throw an error if unsupported
+      print("RevenueCat: Unsupported platform for initialization.");
+      // Depending on your strategy, you might not want to throw an Exception if, for example, you're testing on desktop.
+      // For mobile-focused app, throwing an exception or preventing paywall is reasonable.
+      // For now, let's just print and not throw to avoid crashes on unsupported dev platforms.
+      // throw Exception("Unsupported platform for RevenueCat initialization"); 
+      runApp(const ProviderScope(child: MyApp())); // Exit early if platform not supported for RC
+      return;
+    }
+    await Purchases.configure(PurchasesConfiguration(revenueCatApiKey));
+    print('RevenueCat configured successfully.');
+  } catch (e) {
+    print('Error configuring RevenueCat: $e');
+    // Handle error appropriately, perhaps show a message to the user or disable paywall features
+  }
 
   runApp(const ProviderScope(child: MyApp()));
 }
