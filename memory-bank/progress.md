@@ -1,5 +1,51 @@
 # Progress
 
+## [Current Date] - Onboarding Update, Release Prep (1.0.0+3), and Paywall Implementation
+
+This period focused on refining the user's first experience with an updated onboarding message, preparing a new version for closed testing, and subsequently implementing a custom paywall screen that appears after the onboarding flow.
+
+*   **Onboarding Text Enhancement (`lib/widgets/onboarding/app_breakdown_screen.dart`):**
+    *   The introductory text on the first page of `AppBreakdownScreen` was updated to better explain the app's capabilities.
+    *   First update: "ELI5 makes complex topics easy. Ask questions, share links, or use images to get simple explanations."
+    *   Second update (final): "ELI5 makes complex topics easy. Ask questions, share links (including YouTube videos!), or use images to get simple explanations."
+
+*   **Release Preparation for v1.0.0+3:**
+    *   **Version Bump:** The `version` in `pubspec.yaml` was updated from `1.0.0+2` to `1.0.0+3`.
+    *   **App Bundle Generation:** The command `flutter build appbundle --release` was successfully executed to create the Android App Bundle for the new version.
+    *   **Release Notes:** Drafted initial release notes for Google Play Console submission, highlighting the new onboarding experience and its features.
+
+*   **Custom Paywall Implementation & Integration:**
+    *   **Strategic Decision:** Decided to build a custom UI for the paywall (`PaywallScreen.dart`) for greater design control, while still leveraging RevenueCat for managing purchases and subscriptions.
+    *   **Placement:** The paywall is strategically placed to appear immediately after the user completes the multi-page onboarding flow (`AppBreakdownScreen`) and before they access the main application shell (`AppShell`).
+    *   **`AuthGate.dart` Modifications:**
+        *   Introduced `_shouldShowPaywall` (boolean state) and `hasSeenPaywallKey` (String for SharedPreferences key) to manage paywall visibility.
+        *   Logic added: After `AppBreakdownScreen.onFinished` is called (signifying onboarding completion and `hasSeenOnboardingKey` being set), `AuthGate` now checks if `hasSeenPaywallKey` is false. If so, it sets `_shouldShowPaywall` to true.
+        *   The `build` method in `AuthGate` now conditionally renders `PaywallScreen` if `_shouldShowPaywall` is true.
+        *   `PaywallScreen` receives an `onContinueToApp` callback. This callback, when triggered from `PaywallScreen` (after successful purchase or choosing to proceed if allowed), updates `SharedPreferences` (sets `hasSeenPaywallKey` to true) and sets `_shouldShowPaywall` to false, allowing `AuthGate` to navigate to `AppShell`.
+        *   Added `static const String routeName = '/app-shell';` to `lib/screens/app_shell.dart` for explicit navigation.
+    *   **`PaywallScreen.dart` Development:**
+        *   **Initial Setup:** Created the `PaywallScreen` stateful widget.
+        *   **RevenueCat SDK:** Ensured RevenueCat SDK was initialized in `main.dart` (uncommented existing setup).
+        *   **Fetching Offerings:**
+            *   Created `offeringsProvider` (a `FutureProvider<Offerings>`) in `lib/providers/revenuecat_providers.dart` to fetch available packages from RevenueCat.
+            *   Handled potential `PlatformException` during the fetch operation.
+        *   **Displaying Packages:** The UI displays package details (title, description, price) obtained from the `offeringsProvider`.
+        *   **Loading/Error States:** Basic UI implemented to show loading indicators while fetching offerings and error messages if fetching fails.
+        *   **Purchase Logic (`_purchasePackage`):**
+            *   Implemented a method to initiate a purchase using `Purchases.purchasePackage()`.
+            *   After a successful purchase, it checks `customerInfo.entitlements.active.containsKey('Access')`.
+            *   If the "Access" entitlement is active, the `onContinueToApp` callback is triggered.
+        *   **RevenueCat Dashboard Configuration:**
+            *   Addressed an initial "Error fetching offerings - PurchasesError(code=ConfigurationError...)" by guiding the user to correctly configure products, entitlements (settled on a single "Access" entitlement), and offerings (with associated packages - Monthly, Yearly, 6 Months) in their RevenueCat dashboard. Subsequent logs confirmed offerings were fetched successfully.
+        *   **Restore Purchases:**
+            *   Added a `_restorePurchases` method to allow users to restore previous purchases.
+            *   Included a "Restore Purchases" button/link.
+            *   Managed loading states (`_isRestoring`, `_isPurchasing`) to disable buttons during these operations.
+        *   **Mandatory Paywall:** The "Maybe Later" button (option to bypass the paywall) was removed, making a subscription necessary to proceed to the app for users without the "Access" entitlement.
+        *   **UI Styling (Minor):** The "Restore Purchases" link was styled as plain text in the footer, with the underline later removed by request.
+        *   **Deferred UI Redesign:** A more elaborate UI redesign for `PaywallScreen` (based on a user-provided example including an app icon, feature list, radio-style package selection) was started but put on hold at the user's request to prioritize memory bank updates.
+    *   **Confirmation:** The custom paywall implementation is now confirmed to be working as intended, with successful purchase and entitlement verification.
+
 ## [Current Date] - Password Reset Flow Correction
 
 *   **Issue Identified:** Users were not redirected to the login screen after successfully resetting their password via a deep link. Instead, because the Supabase session remained active after `updateUser`, `AuthGate` treated them as logged in and navigated them to the main app flow (onboarding/paywall/app shell).
@@ -442,3 +488,29 @@ Focused on preparing the app for Google Play Console production access and refin
 *   **Custom Paywall Confirmation:** Confirmed that the app is utilizing the custom `PaywallScreen.dart` as intended for managing user subscriptions via RevenueCat.
 *   **Chat Loading & Data Isolation Resolved:** Addressed the issue where opening chat sessions from history sometimes resulted in a blank page. This was investigated in the context of Supabase RLS policies and Flutter data loading logic in `ChatNotifier` and `ChatDbService`.
 *   **iOS RevenueCat API Key:** Placeholder for iOS API key in `lib/main.dart` identified and highlighted for user to update with their actual key.
+
+## [Current Date] - Chatbot Prompt Enhancements & Response Quality
+
+Based on tester feedback regarding generic chatbot responses, the following improvements were made:
+
+*   **Issue Identified:** The chatbot provided generic responses to questions about app usage (e.g., "Can you give me some examples of how to use this app?") because the OpenAI system prompt lacked specific context about the ELI5 app's features.
+*   **Solution - System Prompt Augmentation (`lib/services/openai_service.dart`):**
+    *   The system prompt for the `SimplificationStyle.eli5` and the `default` fallback case in `OpenAIService` was significantly updated.
+    *   **Added App-Specific Context:** A section titled "About the ELI5 App and How to Use It:" was added to the prompt. This section details key app functionalities:
+        *   Pasting text for simplification.
+        *   Sharing URLs/links (including YouTube) for content explanation.
+        *   Using the camera (OCR) to scan and explain real-world text.
+        *   Asking general questions.
+        *   Choosing different explanation styles (ELI5, Summary, Expert).
+    *   **Instruction for App Usage Questions:** The prompt now explicitly instructs the AI: "If a user asks for examples of how to use the app, you can describe some of these common uses in a conversational way."
+    *   **Improved Response Style Guidance:**
+        *   The prompt was rephrased to encourage more natural, conversational language from the chatbot.
+        *   It now includes the instruction: "Try to vary your sentence structure and avoid using lists for every explanation, unless a list is the most natural way to answer (e.g., for specific steps)."
+        *   The examples within the "About the ELI5 App" section were also rephrased to be more narrative and less like a direct list to further guide the AI's response style.
+*   **Clarification on URL/YouTube Handling:** Confirmed that the existing architecture in `ChatProvider` correctly pre-processes URLs by fetching their content/transcripts and then sends this textual data to `OpenAIService`. The AI is informed that "The user shared this link..." or "The user shared this YouTube video..." along with the extracted content. The updated system prompt aligns with this by describing these features.
+*   **Outcome:** The chatbot is now better equipped to provide specific examples of app usage and should generate responses in a more natural, less list-heavy style.
+
+*   **User Request - AI-Generated App Description:**
+    *   Provided the user with a detailed prompt they can use to have an external AI generate a comprehensive description of the ELI5 app, covering its concept, features, and tech stack.
+    *   Subsequently, upon user clarification, provided an AI-to-AI prompt, demonstrating how I (as an AI) would instruct another AI to generate the app description.
+    *   Finally, provided an "honest description" of the app from my AI perspective, focusing on a balanced assessment of its features, strengths, and underlying mechanisms, suitable for internal review or market research insight.

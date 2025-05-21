@@ -68,6 +68,10 @@ Monetization (RevenueCat) and full Play Console deployment will follow now that 
 1.  **Thorough Testing of In-App Purchase Flows (using Custom Paywall):**
     *   Confirm custom paywall (`PaywallScreen.dart`) is functioning correctly.
     *   **New User Purchase:** Sign up, go through custom paywall, purchase, verify access and UI changes.
+
+**Update based on user confirmation:**
+*   **Custom Paywall Functionality Confirmed:** The custom paywall (`PaywallScreen.dart`) is now confirmed to be working as intended. In-app purchase flows (new user purchase, access verification) have been successfully tested.
+
 2.  **Monitor RevenueCat Dashboard (Sandbox):** Continue to observe customer data, transactions, and entitlement updates in RevenueCat during testing.
 3.  **Address Minor Logged Items (Future):**
     *   Plan to enable RevenueCat "Response Verification" before production.
@@ -95,6 +99,40 @@ Monetization (RevenueCat) and full Play Console deployment will follow now that 
 *   **OpenAI Model Upgrade (Completed & Stable):**
     *   Upgraded models in `OpenAIService` to use `gpt-4o-mini` as the default and `gpt-4o` for potentially larger contexts/inputs.
     *   Adjusted associated token and character count limits for content processing and API calls.
+
+**Chatbot Prompt Enhancements & Response Quality (Recent Focus):**
+
+*   **Issue Addressed:** Generic chatbot responses to questions about app usage.
+*   **Improvements:**
+    *   Augmented the OpenAI system prompt in `lib/services/openai_service.dart` with specific details about the ELI5 app's features (text, URL, OCR, question input, style selection).
+    *   Instructed the AI to use this information when asked for app usage examples.
+    *   Guided the AI towards a more natural, conversational response style, discouraging excessive use of lists.
+*   **Current Status:** Chatbot should now provide more relevant and varied responses regarding app functionality.
+
+**Onboarding, Release Prep, and Paywall Implementation (Recent Major Focus):**
+
+*   **Onboarding Enhancements:**
+    *   Updated introductory text in `AppBreakdownScreen` to be more comprehensive, including mentioning YouTube link support.
+*   **Release Preparation (v1.0.0+3):**
+    *   Incremented app version in `pubspec.yaml`.
+    *   Successfully generated an Android App Bundle (`.aab`) for release.
+    *   Drafted release notes for Play Console submission.
+*   **Custom Paywall Implementation (`PaywallScreen.dart` & `AuthGate.dart`):**
+    *   **Decision:** Opted for a custom-built paywall UI (shown *after* onboarding) instead of RevenueCat's pre-built templates, using RevenueCat for backend purchase logic.
+    *   **Navigation Flow in `AuthGate`:**
+        *   Modified `AuthGate` to display `PaywallScreen` after the `AppBreakdownScreen` (onboarding) if the paywall hasn't been seen/acknowledged (`hasSeenPaywallKey` in SharedPreferences).
+        *   `PaywallScreen` calls back to `AuthGate` to mark the paywall as seen and proceed to `AppShell`.
+    *   **`PaywallScreen` Features & Logic:**
+        *   Fetches offerings using `offeringsProvider` (RevenueCat SDK).
+        *   Displays available subscription packages.
+        *   Handles purchase attempts via `_purchasePackage`.
+        *   Checks for "Access" entitlement in `customerInfo` post-purchase to grant app access.
+        *   Includes a "Restore Purchases" functionality.
+        *   Paywall is currently mandatory; "Maybe Later" option was removed.
+    *   **RevenueCat Configuration:** Addressed initial offering fetch errors by ensuring correct product, entitlement ("Access"), and offering setup in the RevenueCat dashboard.
+    *   **UI State:** Initial UI implemented. A more polished redesign was started but then deferred by user request to prioritize memory bank updates.
+
+**Current Overall Status of Paywall/IAP:** The core functionality of the custom paywall, including fetching offerings, processing purchases, checking entitlements ('Access'), and restoring purchases, is implemented and confirmed to be working. The paywall is integrated into the post-onboarding flow.
 
 **Previous Active Context (still relevant for broader goals but superseded by immediate tasks above):**
 *   **Google Play Console - Production Readiness:**

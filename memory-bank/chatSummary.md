@@ -152,4 +152,70 @@ The conversation began with a misunderstanding of the user's current task, which
 - **Next Immediate Steps:**
     - Test the app build with the `app_links` implementation to ensure it runs without issues.
     - Test the actual deep link authentication flow.
-    - Begin sandbox testing of RevenueCat purchases. 
+    - Begin sandbox testing of RevenueCat purchases.
+
+## 13. Onboarding, Release Prep, and Paywall Implementation (Post-Onboarding)
+
+- **Goal:** Update onboarding text, prepare a new release build, and implement a custom paywall screen to be shown after the onboarding flow.
+
+- **Onboarding Text Updates (`lib/widgets/onboarding/app_breakdown_screen.dart`):**
+    - Iteratively updated the introductory text on the first page of `AppBreakdownScreen`.
+    - Final text: "ELI5 makes complex topics easy. Ask questions, share links (including YouTube videos!), or use images to get simple explanations."
+
+- **Release Preparation (v1.0.0+3):**
+    - Read `pubspec.yaml` to identify current version (`1.0.0+2`).
+    - Incremented build number to `1.0.0+3` in `pubspec.yaml`.
+    - Ran `flutter build appbundle --release` to generate the Android App Bundle.
+    - Drafted release notes for the Google Play Console.
+
+- **Paywall Design & Flow Decision:**
+    - Initially considered RevenueCat's pre-built paywall templates.
+    - Decided to build a custom paywall UI within Flutter for more control, while using RevenueCat for backend purchase management.
+    - The paywall is to be displayed *after* the onboarding flow and *before* the main app shell.
+
+- **`AuthGate.dart` Modifications for Paywall Navigation:**
+    - Introduced `_shouldShowPaywall` state variable and a `hasSeenPaywallKey` for `SharedPreferences`.
+    - After `AppBreakdownScreen.onFinished` completes (and onboarding is marked as seen):
+        - Set `_showAppBreakdown = false`.
+        - Set `_shouldShowPaywall = true` (if `hasSeenPaywallKey` is false).
+    - In `AuthGate.build`:
+        - If `_shouldShowPaywall` is true, display `PaywallScreen`.
+    - `PaywallScreen` receives an `onContinueToApp` callback (`_markPaywallAsSeen` from `AuthGate`). This callback:
+        - Updates `SharedPreferences` by setting `hasSeenPaywallKey` to true.
+        - Sets `_shouldShowPaywall = false`, allowing navigation to `AppShell`.
+    - Added `AppShell.routeName` to `lib/screens/app_shell.dart`.
+
+- **`PaywallScreen.dart` Implementation & Refinement:**
+    - Created initial placeholder `PaywallScreen` widget in `lib/screens/paywall_screen.dart`.
+    - **RevenueCat SDK Initialization:**
+        - Uncommented and verified initialization in `main.dart` (API keys noted).
+    - **Fetching Offerings:**
+        - Created `offeringsProvider` (a `FutureProvider<Offerings>`) in `lib/providers/revenuecat_providers.dart` to fetch offerings from RevenueCat.
+        - Implemented error handling for `PlatformException` during fetching.
+    - **Displaying Plans:**
+        - `PaywallScreen` uses `offeringsProvider` to display available subscription plans (title, description, price).
+        - Included basic UI for loading and error states.
+    - **Purchase Logic:**
+        - Added a `_purchasePackage` method to handle `Purchases.purchasePackage()`.
+    - **RevenueCat Dashboard Configuration:**
+        - Addressed "Error fetching offerings - PurchasesError(code=ConfigurationError...)" by guiding the user to correctly configure products, entitlements, and offerings.
+        - User updated RevenueCat setup to a single entitlement named "Access" with three products (Monthly, Yearly, 6 Months) associated with it. Logs confirmed successful fetching afterwards.
+    - **Entitlement Check:**
+        - Updated `_purchasePackage` to check `customerInfo.entitlements.active.containsKey('Access')` after a successful purchase.
+        - If entitlement is active, `onContinueToApp` callback is triggered.
+    - **Restore Purchases:**
+        - Added `_restorePurchases` method and a "Restore Purchases" button.
+        - Implemented `_isRestoring` and `_isPurchasing` state variables to manage loading indicators and disable buttons during operations.
+    - **UI Adjustments (User Request):**
+        - "Restore Purchases" link styled as plain clickable text in the footer (underline later removed).
+        - Removed the "Maybe Later" button, making the paywall mandatory to proceed to the app for users without an active "Access" entitlement.
+    - **Deferred UI Redesign:**
+        - User expressed desire for a more polished UI matching a design example (app icon, headline, radio-style package selection with "best value" highlight, feature list, main "Continue" button).
+        - Began refactoring `PaywallScreen` with placeholders for app icon, feature list, radio-button style package selection, and a main "Continue" button.
+        - Helper methods (`_buildFeatureItem`, `_buildErrorView`, `_buildNoOfferingsView`) were added.
+        - User subsequently requested to "forget about ui redesign" and focus on updating memory-bank files.
+
+- **Current Status (at time of this summary update request):**
+    - Functional paywall is in place after onboarding.
+    - Memory bank files are being updated to reflect recent progress.
+    - UI polishing for `PaywallScreen` is on hold. 

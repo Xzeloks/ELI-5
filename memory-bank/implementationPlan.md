@@ -160,28 +160,34 @@
     - Task: Test end-to-end deep linking flow for Supabase authentication.
         - Status: To Do
 
+## Phase: Onboarding Enhancements (Could be part of UI/UX or a separate small phase)
+- **Objective:** Refine the initial user onboarding experience.
+- **Key Components:**
+    - Task: Update introductory text on `AppBreakdownScreen` to be more descriptive (e.g., mention YouTube links).
+        - Status: Done
+
 ## Phase 10: Monetization with RevenueCat (Post-Core Features & Deployment Readiness)
 - **Objective:** Integrate RevenueCat for subscription management once core features are stable and the app is deployment-ready.
 - **Key Components:**
     - Task: Plan subscription tiers and features.
         - Status: To Do
     - Task: Set up RevenueCat account and configure products/entitlements.
-        - Status: In Progress (Initial setup done, products being defined)
+        - Status: Done (Single 'Access' entitlement with Monthly, Yearly, 6 Mo packages)
     - Task: Integrate RevenueCat SDK into the Flutter app.
-        - Status: Done (`purchases_flutter`, `purchases_ui_flutter` added, basic init in `main.dart`)
+        - Status: Done (`purchases_flutter` added, basic init in `main.dart`)
     - Task: Implement UI for displaying subscription options (`PaywallScreen.dart`).
-        - Status: Done (Initial version implemented)
+        - Status: Done (Custom paywall implemented, shown post-onboarding; further UI polish deferred)
+    - Task: Integrate Paywall into post-onboarding flow via `AuthGate.dart`.
+        - Status: Done
     - Task: Enhance Paywall UI with currency symbols.
         - Status: Done
     - Task: Implement purchase flow and entitlement checking.
-        - Status: In Progress (Logic present in `PaywallScreen.dart`, needs sandbox testing)
+        - Status: Done (Implemented in `PaywallScreen.dart` with 'Access' entitlement check; includes restore purchases)
     - Task: Test RevenueCat purchase flow (Sandbox Android/iOS).
-        - Status: To Do (Guidance provided)
+        - Status: Done (Android sandbox testing confirmed successful, paywall working as intended)
     - Task: Connect RevenueCat with Supabase (e.g., webhook or custom claims) to sync subscription status with user profiles.
         - Status: To Do
     - Task: Secure features based on subscription status.
-        - Status: To Do
-    - Task: Monitor app performance, reviews, and feedback post-launch.
         - Status: To Do
 
 ## Phase 11: Deployment & Publishing (Google Play Store - Post-Core Features)
@@ -189,6 +195,8 @@
 - **Key Components:**
     - Task: Finalize all Google Play Console requirements (store listing, graphics, content rating, privacy policy).
         - Status: In Progress
+    - Task: Generate and upload new build (e.g., v1.0.0+3) for testing.
+        - Status: Done (v1.0.0+3 AAB generated)
     - Task: Create and manage testing tracks (closed, open) on Play Console effectively.
         - Status: In Progress
     - Task: Promote builds through testing tracks to production.
