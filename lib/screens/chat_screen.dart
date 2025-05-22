@@ -18,10 +18,18 @@ import 'package:eli5/widgets/history/_session_tile.dart'; // ADDED import for Se
 import 'package:eli5/providers/history_list_providers.dart'; // ADDED for sessionPendingDeleteIdProvider
 import 'package:eli5/services/chat_db_service.dart'; // Ensure ChatDbService is imported
 import 'package:eli5/utils/snackbar_helper.dart'; // ADDED
+import 'package:file_picker/file_picker.dart'; // ADDED for file picking
+import 'package:flutter_pdf_text/flutter_pdf_text.dart'; // ADDED for PDF text extraction
+import 'dart:io'; // Import for File
 // import 'dart:math'; // For min function - already in chat_provider if needed there, or ensure it's imported if used directly here
 
 // Helper to identify the special "processing image" message
 const String _processingImagePlaceholder = 'Processing image for simplification...';
+const String _processingPdfPlaceholder = 'Processing PDF for simplification...'; // ADDED
+const String _processingFilePlaceholder = 'Processing file for simplification...'; // ADDED
+
+// ADDED: Enum for modal bottom sheet choice
+enum InputSourceOption { gallery, camera, file }
 
 // Convert to ConsumerStatefulWidget
 class ChatScreen extends ConsumerStatefulWidget {
@@ -217,7 +225,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     // Normal chat message bubble
-    return ChatMessageBubble(message: message);
+    return ChatMessageBubble(
+      message: message,
+      onThumbUp: (messageId) {
+        ref.read(chatProvider.notifier).recordExplanationFeedback(messageId, 1);
+      },
+      onThumbDown: (messageId) {
+        ref.read(chatProvider.notifier).recordExplanationFeedback(messageId, -1);
+      },
+      onReport: (messageId) {
+        _showReportDialog(context, ref, messageId);
+      },
+    );
   }
 
   Widget _buildDateSeparator(BuildContext context, String dateText) {
@@ -248,7 +267,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     WidgetRef ref,
     TextEditingController controller,
     bool isAiResponding,
-    bool isProcessingImage,
+    bool isProcessingInput,
     VoidCallback onSendPressed,
   ) {
     final theme = Theme.of(context);
@@ -279,22 +298,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             IconButton(
               padding: EdgeInsets.zero, // ADDED: Remove default padding
               icon: Icon(
-                FeatherIcons.camera,
-                color: theme.iconTheme.color != null 
-                       ? theme.iconTheme.color!.withAlpha((255 * 0.8).round()) 
-                       : AppColors.textMediumEmphasisDark.withAlpha((255 * 0.8).round()),
+                FeatherIcons.upload,
+                color: AppColors.kopyaPurple,
               ),
-              tooltip: 'Pick image for OCR',
-              onPressed: isAiResponding || isProcessingImage
+              tooltip: 'Upload file or pick image for OCR',
+              onPressed: isAiResponding || isProcessingInput
                   ? null
                   : () async {
-                      _pickAndProcessImage(context, ref);
+                      _pickAndProcessInputSource(context, ref);
                     },
             ),
             Expanded(
               child: TextField(
                 controller: controller,
-                enabled: !isAiResponding && !isProcessingImage,
+                enabled: !isAiResponding && !isProcessingInput,
                 decoration: InputDecoration(
                   hintText: "Ask ELI5 anything! Type, paste a URL, or use an image for AI-powered simplification.", // CHANGED: Emphasize AI
                   filled: true, // Ensure filled is true for background color to take effect if not globally set
@@ -306,7 +323,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   disabledBorder: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 14.0),
                 ),
-                onSubmitted: isAiResponding || isProcessingImage ? null : (_) => onSendPressed(),
+                onSubmitted: isAiResponding || isProcessingInput ? null : (_) => onSendPressed(),
                 keyboardType: TextInputType.multiline,
                 minLines: 1,
                 maxLines: 5,
@@ -318,7 +335,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               borderRadius: BorderRadius.circular(24.0), // CHANGED: Adjusted for a more circular button feel within the bar
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
-                  onTap: isAiResponding || isProcessingImage ? null : onSendPressed,
+                  onTap: isAiResponding || isProcessingInput ? null : onSendPressed,
                   splashColor: theme.colorScheme.onPrimary.withAlpha((255 * 0.2).round()),
                   highlightColor: theme.colorScheme.onPrimary.withAlpha((255 * 0.1).round()),
                   child: Padding(
@@ -337,8 +354,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _buildProcessingIndicators(BuildContext context, bool isAiResponding, bool isProcessingImage) {
-    if (isProcessingImage) {
+  Widget _buildProcessingIndicators(BuildContext context, bool isAiResponding, bool isProcessingInput) {
+    if (isProcessingInput) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0),
         child: Row(
@@ -350,12 +367,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               lineWidth: 2.0,
             ),
             const SizedBox(width: 8),
-            const Text("Scanning image..."),
+            const Text("Processing input..."),
           ],
         ),
       );
     }
-    if (isAiResponding && !isProcessingImage) {
+    if (isAiResponding && !isProcessingInput) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0),
         child: Row(
@@ -409,40 +426,56 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   // --- Extracted Image Picker Logic ---
-  Future<void> _pickAndProcessImage(BuildContext context, WidgetRef ref) async {
-     final ImageSource? source = await showModalBottomSheet<ImageSource>(
-        context: context,
-        builder: (BuildContext context) {
-          return SafeArea(
-              child: Wrap(
-                children: <Widget>[
-                  ListTile(
-                    leading: const Icon(FeatherIcons.image),
-                    title: const Text('Gallery'),
-                    onTap: () { Navigator.pop(context, ImageSource.gallery); },
-                  ),
-                  ListTile(
-                    leading: const Icon(FeatherIcons.camera),
-                    title: const Text('Camera'),
-                    onTap: () { Navigator.pop(context, ImageSource.camera); },
-                  ),
-                ],
+  Future<void> _pickAndProcessInputSource(BuildContext context, WidgetRef ref) async {
+    final InputSourceOption? choice = await showModalBottomSheet<InputSourceOption>(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(FeatherIcons.image),
+                title: const Text('From Gallery'),
+                onTap: () {
+                  Navigator.pop(context, InputSourceOption.gallery);
+                },
               ),
-            );
-        },
-      );
+              ListTile(
+                leading: const Icon(FeatherIcons.camera),
+                title: const Text('Use Camera'),
+                onTap: () {
+                  Navigator.pop(context, InputSourceOption.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(FeatherIcons.fileText),
+                title: const Text('Choose File (PDF, TXT)'),
+                onTap: () {
+                  Navigator.pop(context, InputSourceOption.file);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
 
-      if (source == null) {
-        if (!context.mounted) return;
-        return;
-      }
+    if (choice == null) {
+      if (!context.mounted) return;
+      return;
+    }
 
-      final ImagePicker picker = ImagePicker();
-      ref.read(chatProvider.notifier).setProcessingImageState(true);
-      try {
-        final XFile? image = await picker.pickImage(source: source);
+    // Consider renaming isProcessingImage state in ChatNotifier to something more generic like isProcessingInput
+    ref.read(chatProvider.notifier).setProcessingInputState(true);
+
+    try {
+      if (choice == InputSourceOption.gallery || choice == InputSourceOption.camera) {
+        final ImageSource imageSource = choice == InputSourceOption.gallery ? ImageSource.gallery : ImageSource.camera;
+        final ImagePicker picker = ImagePicker();
+        final XFile? image = await picker.pickImage(source: imageSource);
+
         if (!context.mounted) {
-          ref.read(chatProvider.notifier).setProcessingImageState(false);
+          ref.read(chatProvider.notifier).setProcessingInputState(false);
           return;
         }
 
@@ -453,25 +486,129 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           await textRecognizer.close();
           final String extractedText = recognizedText.text;
 
-          ref.read(chatProvider.notifier).setProcessingImageState(false);
+          // No need to setProcessingImageState(false) here, will be handled by sendMessageAndGetResponse or finally block
 
-          if (!context.mounted) { return; } 
+          if (!context.mounted) return;
 
           if (extractedText.isNotEmpty) {
-            ref.read(chatProvider.notifier).addDisplayMessage(_processingImagePlaceholder, ChatMessageSender.user);
-            ref.read(chatProvider.notifier).sendMessageAndGetResponse(extractedText, isFromOcr: true);
+            // Assuming addDisplayMessage and sendMessageAndGetResponse will be updated to handle inputType
+            ref.read(chatProvider.notifier).addDisplayMessage(_processingImagePlaceholder, ChatMessageSender.user, inputType: InputType.ocr);
+            ref.read(chatProvider.notifier).sendMessageAndGetResponse(extractedText, inputType: InputType.ocr);
           } else {
-            if(context.mounted) { showStyledSnackBar(context, message: 'No text found in image.'); }
+            ref.read(chatProvider.notifier).setProcessingInputState(false);
+            if (context.mounted) {
+              showStyledSnackBar(context, message: 'No text found in image.');
+            }
           }
         } else {
-          ref.read(chatProvider.notifier).setProcessingImageState(false);
-          if (!context.mounted) { return; }
-          if(context.mounted) { showStyledSnackBar(context, message: 'No image selected.'); }
+          ref.read(chatProvider.notifier).setProcessingInputState(false);
+          if (!context.mounted) return;
+          if (context.mounted) {
+            showStyledSnackBar(context, message: 'No image selected.');
+          }
         }
-      } catch (e) {
-        ref.read(chatProvider.notifier).setProcessingImageState(false);
-        if (!context.mounted) { return; }
-        if(context.mounted) { showStyledSnackBar(context, message: 'Error processing image: $e', isError: true); }
+      } else if (choice == InputSourceOption.file) {
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['pdf', 'txt'], // REVERTED: Allow 'pdf' and 'txt'
+        );
+
+        if (result != null && result.files.single.path != null) {
+          String filePath = result.files.single.path!;
+          String fileName = result.files.single.name;
+          String fileExtension = result.files.single.extension?.toLowerCase() ?? '';
+          String extractedText = '';
+          InputType fileInputType = InputType.file; // Default for .txt, will be overridden for .pdf
+          String placeholder = _processingFilePlaceholder;
+
+
+          if (fileExtension == 'pdf') {
+            fileInputType = InputType.pdf;
+            placeholder = _processingPdfPlaceholder;
+            if (!context.mounted) return;
+            ref.read(chatProvider.notifier).addDisplayMessage(placeholder, ChatMessageSender.user, inputType: fileInputType);
+            try {
+              PDFDoc doc = await PDFDoc.fromPath(filePath);
+              extractedText = await doc.text;
+            } catch (e) {
+              extractedText = ''; // Ensure it's empty on error
+              if (context.mounted) {
+                showStyledSnackBar(context, message: 'Error reading PDF content: Could not extract text.', isError: true);
+                print('[ChatScreen] PDF parsing error: $e');
+              }
+            }
+          } else if (fileExtension == 'txt') {
+            fileInputType = InputType.file; // Explicitly .file
+            placeholder = _processingFilePlaceholder;
+            if (!context.mounted) return;
+            ref.read(chatProvider.notifier).addDisplayMessage(placeholder, ChatMessageSender.user, inputType: fileInputType);
+            try {
+              extractedText = await File(filePath).readAsString();
+            } catch (e) {
+              extractedText = '';
+              if (context.mounted) {
+                showStyledSnackBar(context, message: 'Error reading text file.', isError: true);
+                print('[ChatScreen] TXT file reading error: $e');
+              }
+            }
+          } else {
+            // This case should ideally not be reached due to `allowedExtensions`
+            ref.read(chatProvider.notifier).setProcessingInputState(false);
+            if (context.mounted) {
+              showStyledSnackBar(context, message: 'Unsupported file type: .$fileExtension', isError: true);
+            }
+            return; // Exit early if unsupported file type somehow gets through
+          }
+
+          // No need to setProcessingImageState(false) here if sending message, ChatNotifier will handle it.
+          // If extractedText is empty, then we need to set it false.
+          
+          if (!context.mounted) return;
+
+          if (extractedText.isNotEmpty) {
+            ref.read(chatProvider.notifier).sendMessageAndGetResponse(extractedText, inputType: fileInputType);
+          } else {
+            // If text extraction failed or resulted in empty text, ensure processing state is false
+            ref.read(chatProvider.notifier).setProcessingInputState(false);
+            // Remove the temporary placeholder message if it was added and no content was found
+            // This part needs careful handling in ChatNotifier or here.
+            // For now, just a snackbar if it was a PDF/TXT and we got no text.
+            if (context.mounted && (fileExtension == 'pdf' || fileExtension == 'txt')) {
+               // The error snackbars for parsing are shown above.
+               // This one is if parsing succeeded but returned empty.
+               showStyledSnackBar(context, message: 'No text content found in "$fileName".');
+            }
+          }
+        } else {
+          // User canceled the file picker or path was null
+          ref.read(chatProvider.notifier).setProcessingInputState(false);
+          if (!context.mounted) return;
+          // No snackbar needed here generally, as user explicitly cancelled.
+          // if(context.mounted) { showStyledSnackBar(context, message: 'No file selected.'); }
+        }
+      }
+    } catch (e) {
+      // Catch-all for any other errors during the process
+      ref.read(chatProvider.notifier).setProcessingInputState(false);
+      if (!context.mounted) return;
+      if (context.mounted) {
+        showStyledSnackBar(context, message: 'An unexpected error occurred: ${e.toString()}', isError: true);
+        print('[ChatScreen] _pickAndProcessInputSource error: $e');
+      }
+    } finally {
+      // Ensure processing state is turned off if any path above missed it.
+      // This is a safeguard. sendMessageAndGetResponse in ChatNotifier should also handle this.
+      final processingState = ref.read(chatProvider.select((cs) => cs.isProcessingInput));
+      if (processingState) { // Check current state before trying to set it
+        // Delay slightly to allow any immediate UI updates from sendMessageAndGetResponse to settle
+        // Future.delayed(const Duration(milliseconds: 100), () {
+        //   if (mounted && ref.read(chatProvider.select((cs) => cs.isProcessingInput))) { // Re-check state
+        //      ref.read(chatProvider.notifier).setProcessingInputState(false);
+        //   }
+        // });
+        // Simpler: ChatNotifier's sendMessageAndGetResponse should robustly set this to false.
+        // If still true here, it implies sendMessageAndGetResponse wasn't called or didn't complete its state update.
+      }
     }
   }
 
@@ -491,7 +628,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final chatState = ref.watch(chatProvider);
     final messages = chatState.messages;
     final isAiResponding = ref.watch(chatProvider.select((cs) => cs.isAiResponding));
-    final isProcessingImage = ref.watch(chatProvider.select((cs) => cs.isProcessingImage));
+    final isProcessingInput = ref.watch(chatProvider.select((cs) => cs.isProcessingInput));
     final allSessionsAsyncValue = ref.watch(chatSessionsProvider);
 
     // Use the state's controller
@@ -505,8 +642,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     // Pass the state's controller to the input bar builder
-    final chatInputBarWidget = _buildChatInputBar(context, ref, messageController, isAiResponding, isProcessingImage, sendMessage);
-    final processingIndicatorsWidget = _buildProcessingIndicators(context, isAiResponding, isProcessingImage);
+    final chatInputBarWidget = _buildChatInputBar(context, ref, messageController, isAiResponding, isProcessingInput, sendMessage);
+    final processingIndicatorsWidget = _buildProcessingIndicators(context, isAiResponding, isProcessingInput);
     final styleSelectorWidget = _buildStyleSelector(context, ref); // ADDED: Create the style selector widget
 
     // Scroll to bottom when messages change and we are not already at the bottom
@@ -523,7 +660,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         // Add SizedBox for top padding
         // If this is a pushed screen, AppBar provides padding. Otherwise, manual padding.
         if (widget.sessionId == null) const SizedBox(height: 16.0),
-        if (messages.isEmpty && !isAiResponding && !isProcessingImage && widget.sessionId == null) ...[ // Show greeting only for main new chat screen
+        if (messages.isEmpty && !isAiResponding && !isProcessingInput && widget.sessionId == null) ...[ // Show greeting only for main new chat screen
            Expanded(
              child: Column( 
                children: [
@@ -762,5 +899,118 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         }
       }
     });
+  }
+
+  // --- Method to show the report dialog ---
+  void _showReportDialog(BuildContext context, WidgetRef ref, String messageId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return _ReportDialogContent(
+          messageId: messageId,
+          onReportSubmitted: (String category, String? comment) {
+            // Call the ChatNotifier method to save the report
+            ref.read(chatProvider.notifier).recordExplanationReport(messageId, category, comment);
+            Navigator.of(dialogContext).pop(); // Close the dialog
+            // Show a confirmation Snackbar
+            if (context.mounted) { // Ensure context is still valid
+              showStyledSnackBar(context, message: "Report submitted. Thank you for your feedback!");
+            }
+          },
+        );
+      },
+    );
+  }
+}
+
+// --- StatefulWidget for the Report Dialog Content ---
+class _ReportDialogContent extends StatefulWidget {
+  final String messageId;
+  final Function(String category, String? comment) onReportSubmitted;
+
+  const _ReportDialogContent({
+    required this.messageId,
+    required this.onReportSubmitted,
+  });
+
+  @override
+  _ReportDialogContentState createState() => _ReportDialogContentState();
+}
+
+class _ReportDialogContentState extends State<_ReportDialogContent> {
+  final _reportCategories = ["Inaccurate", "Confusing", "Offensive", "Other"];
+  String? _selectedCategory;
+  final _commentController = TextEditingController();
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Report Explanation'),
+      content: SingleChildScrollView(
+        child: ListBody(
+          children: <Widget>[
+            // Text("Why are you reporting this explanation for message ID: ${widget.messageId}?"), // REMOVED: User doesn't need to see raw ID
+            const Text("Please tell us why you are reporting this explanation:"), // Added a more user-friendly prompt
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(labelText: 'Select a category'),
+              value: _selectedCategory,
+              items: _reportCategories.map((String category) {
+                return DropdownMenuItem<String>(
+                  value: category,
+                  child: Text(category),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedCategory = newValue;
+                });
+              },
+              validator: (value) => value == null ? 'Please select a category' : null,
+            ),
+            if (_selectedCategory == "Other") // Show comment field if "Other" is selected
+              Padding(
+                padding: const EdgeInsets.only(top: 16.0),
+                child: TextField(
+                  controller: _commentController,
+                  decoration: const InputDecoration(
+                    labelText: 'Optional comment',
+                    hintText: 'Please provide more details (optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          child: const Text('Cancel'),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+        TextButton(
+          child: const Text('Submit Report'),
+          onPressed: () {
+            if (_selectedCategory != null) {
+              widget.onReportSubmitted(_selectedCategory!, _commentController.text.trim().isEmpty ? null : _commentController.text.trim());
+            } else {
+              // Optionally, show a small validation message or rely on DropdownButtonFormField's validator
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please select a report category.')),
+              );
+            }
+          },
+        ),
+      ],
+    );
   }
 } 

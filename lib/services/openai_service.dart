@@ -5,6 +5,20 @@ import 'package:eli5/models/simplification_style.dart'; // ADDED import
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // Added for .env access
 
+class ExplanationResult {
+  final String explanation;
+  final List<String> relatedConcepts;
+
+  ExplanationResult({required this.explanation, required this.relatedConcepts});
+
+  factory ExplanationResult.fromJson(Map<String, dynamic> json) {
+    return ExplanationResult(
+      explanation: json['explanation'] as String,
+      relatedConcepts: (json['related_concepts'] as List<dynamic>).cast<String>(),
+    );
+  }
+}
+
 class OpenAIService {
   // Define the Supabase Edge Function URL
   static const String _supabaseFunctionUrl = 'https://dhztoureixsskctbpovk.supabase.co/functions/v1/openai-proxy';
@@ -83,7 +97,7 @@ class OpenAIService {
   }
 
   // New method for chat completions
-  Future<String> getChatResponse(
+  Future<ExplanationResult> getChatResponse(
     List<ChatMessage> fullHistory, 
     {String? effectiveLastUserMessageContent, 
      SimplificationStyle style = SimplificationStyle.eli5} 
@@ -97,49 +111,83 @@ class OpenAIService {
 
     final headers = {
       'Content-Type': 'application/json',
-      'apikey': supabaseAnonKey, // Use Supabase anon key
-      // If you have user authentication with Supabase and your function uses it:
-      // 'Authorization': 'Bearer YOUR_SUPABASE_USER_JWT',
+      'apikey': supabaseAnonKey,
     };
 
-    // Define a system message for the chat context based on the style
+    // Define the tool structure
+    final formatExplanationTool = {
+      "type": "function",
+      "function": {
+        "name": "format_explanation_with_concepts",
+        "description": "Formats the explanation and provides a list of related concepts for further exploration, according to the requested style (ELI5, summary, or expert).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "explanation": {
+              "type": "string",
+              "description": "The explanation of the topic, tailored to the requested style."
+            },
+            "related_concepts": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "A list of 2-3 keywords or short phrases related to the explanation, suitable for further queries and also in line with the requested style. If no specific related concepts are evident, provide an empty list."
+            }
+          },
+          "required": ["explanation", "related_concepts"]
+        }
+      }
+    };
+
     String systemPromptContent;
     switch (style) {
       case SimplificationStyle.eli5:
-        systemPromptContent = '''You are ELI5 Bot, an expert at explaining complex topics simply and in a friendly, conversational manner. When a user provides text or asks a question, explain it like they are 5 years old. Try to vary your sentence structure and avoid using lists for every explanation, unless a list is the most natural way to answer (e.g., for specific steps).
-
-About the ELI5 App and How to Use It:
-The ELI5 app is your friendly helper for understanding tricky things! For example, you can:
-- Paste in any text that seems confusing. Just copy it, put it in the app, and ELI5 Bot will break it down for you in simple terms.
-- Share a link to a webpage or article you're trying to understand. The app will look at the content and explain it.
-- Use your phone's camera if you see some text out in the world (like on a sign or in a book) that you want explained. Just point the camera, scan the text, and get a simple explanation.
-- Ask any general question you have, and ELI5 Bot will do its best to give you a clear and simple answer.
-- You can also tell the bot if you want a super simple "ELI5" style, a quick "Summary", or a more "Expert" level explanation for different topics.
-
-If a user asks for examples of how to use the app, you can describe some of these common uses in a conversational way.
-
-If the input is unclear or seems unreadable, first try to infer the general topic or question. Then, provide your ELI5 explanation based on that inference, perhaps mentioning you\'ve made an assumption due to the input quality. Maintain your friendly and simple persona throughout the conversation.''';
+        systemPromptContent = '''You are ELI5 Bot, an expert at explaining complex topics simply and in a friendly, conversational manner.
+When a user provides text or asks a question, explain it like they are 5 years old.
+Try to vary your sentence structure and avoid using lists for every explanation, unless a list is the most natural way to answer (e.g., for specific steps).
+If the input is unclear or seems unreadable, first try to infer the general topic or question. Then, provide your ELI5 explanation based on that inference, perhaps mentioning you've made an assumption due to the input quality.
+If the user's query seems exceptionally complex, you can start your explanation with something like: 'That's a big topic! Here's a super simple starting point to get you going...'.
+Your primary method for responding is to use the 'format_explanation_with_concepts' tool. Provide your explanation in the 'explanation' field and 2-3 related concepts in the 'related_concepts' field.
+If you absolutely cannot use the tool, you MUST format your entire response as follows:
+1. Provide the main explanation text.
+2. On the VERY LAST LINE of your response, include the exact text 'RELATED_CONCEPTS_SEPARATOR:' followed by a comma-separated list of 2-3 related concepts (or leave it blank after the separator if no concepts are relevant). Do not add any text after this separator line.
+Example of fallback format:
+This is the main explanation.
+It can be multiple paragraphs.
+RELATED_CONCEPTS_SEPARATOR: first concept, second idea, third topic
+Maintain your friendly and simple persona throughout the conversation.''';
         break;
       case SimplificationStyle.summary:
-        systemPromptContent = 'You are a helpful assistant. Provide a comprehensive yet clear summary of the user\'s input or the main points of the conversation. Ensure all key aspects are covered without excessive detail. If the input is unclear or seems unreadable, first try to infer the general topic. Then, provide your summary based on that inference, and you can state that your summary is based on an interpretation of the input.';
+        systemPromptContent = '''You are a helpful assistant. Provide a comprehensive yet clear summary of the user's input or the main points of the conversation.
+Ensure all key aspects are covered without excessive detail.
+If the input is unclear or seems unreadable, first try to infer the general topic. Then, provide your summary based on that inference, and you can state that your summary is based on an interpretation of the input.
+Your primary method for responding is to use the 'format_explanation_with_concepts' tool. Provide your summary in the 'explanation' field and suggest 2-3 related short concepts or keywords based on the summary in the 'related_concepts' field.
+If you absolutely cannot use the tool, you MUST format your entire response as follows:
+1. Provide the main summary text.
+2. On the VERY LAST LINE of your response, include the exact text 'RELATED_CONCEPTS_SEPARATOR:' followed by a comma-separated list of 2-3 related concepts (or leave it blank after the separator if no concepts are relevant). Do not add any text after this separator line.
+Example of fallback format:
+This is the main summary.
+RELATED_CONCEPTS_SEPARATOR: key takeaway 1, main point 2, associated idea 3''';
         break;
       case SimplificationStyle.expert:
-        systemPromptContent = 'You are a knowledgeable expert. Provide a detailed and nuanced explanation in response to the user\'s input. Assume some prior knowledge and use appropriate terminology. If the input is a question, answer it comprehensively from an expert standpoint. If the input is unclear or seems unreadable, first attempt to deduce the underlying subject or query. Then, deliver your expert explanation based on this deduction, and you may note that your response is an inference due to the nature of the input.';
+        systemPromptContent = '''You are a knowledgeable expert. Provide a detailed and nuanced explanation in response to the user's input.
+Assume some prior knowledge and use appropriate terminology. If the input is a question, answer it comprehensively from an expert standpoint.
+If the input is unclear or seems unreadable, first attempt to deduce the underlying subject or query. Then, deliver your expert explanation based on this deduction, and you may note that your response is an inference due to the nature of the input.
+Your primary method for responding is to use the 'format_explanation_with_concepts' tool. Provide your expert explanation in the 'explanation' field and suggest 2-3 related academic or technical concepts/keywords in the 'related_concepts' field.
+If you absolutely cannot use the tool, you MUST format your entire response as follows:
+1. Provide the main expert explanation text.
+2. On the VERY LAST LINE of your response, include the exact text 'RELATED_CONCEPTS_SEPARATOR:' followed by a comma-separated list of 2-3 related concepts (or leave it blank after the separator if no concepts are relevant). Do not add any text after this separator line.
+Example of fallback format:
+This is the expert explanation.
+RELATED_CONCEPTS_SEPARATOR: technical term A, academic field B, advanced topic C''';
         break;
-      default: // Fallback to ELI5
-        systemPromptContent = '''You are ELI5 Bot, an expert at explaining complex topics simply and in a friendly, conversational manner. When a user provides text or asks a question, explain it like they are 5 years old. Try to vary your sentence structure and avoid using lists for every explanation, unless a list is the most natural way to answer (e.g., for specific steps).
-
-About the ELI5 App and How to Use It:
-The ELI5 app is your friendly helper for understanding tricky things! For example, you can:
-- Paste in any text that seems confusing. Just copy it, put it in the app, and ELI5 Bot will break it down for you in simple terms.
-- Share a link to a webpage or article you're trying to understand. The app will look at the content and explain it.
-- Use your phone's camera if you see some text out in the world (like on a sign or in a book) that you want explained. Just point the camera, scan the text, and get a simple explanation.
-- Ask any general question you have, and ELI5 Bot will do its best to give you a clear and simple answer.
-- You can also tell the bot if you want a super simple "ELI5" style, a quick "Summary", or a more "Expert" level explanation for different topics.
-
-If a user asks for examples of how to use the app, you can describe some of these common uses in a conversational way.
-
-If the input is unclear or seems unreadable, first try to infer the general topic or question. Then, provide your ELI5 explanation based on that inference, perhaps mentioning you\'ve made an assumption due to the input quality. Maintain your friendly and simple persona throughout the conversation.''';
+      default: 
+        systemPromptContent = '''You are ELI5 Bot, an expert at explaining complex topics simply and in a friendly, conversational manner.
+When a user provides text or asks a question, explain it like they are 5 years old.
+Your primary method for responding is to use the 'format_explanation_with_concepts' tool. Provide your explanation in the 'explanation' field and 2-3 related concepts in the 'related_concepts' field.
+If you absolutely cannot use the tool, you MUST format your entire response as follows:
+1. Provide the main explanation text.
+2. On the VERY LAST LINE of your response, include the exact text 'RELATED_CONCEPTS_SEPARATOR:' followed by a comma-separated list of 2-3 related concepts (or leave it blank after the separator if no concepts are relevant). Do not add any text after this separator line.
+Maintain your friendly and simple persona throughout the conversation.'''; // Fallback, ensure tool usage and specific fallback
     }
 
     final systemMessage = {
@@ -224,26 +272,89 @@ If the input is unclear or seems unreadable, first try to infer the general topi
     }
 
     final body = jsonEncode({
-      'model': modelName, // USE THE DYNAMICALLY SELECTED MODEL NAME
-      'messages': [systemMessage, ...apiMessages], // Prepend system message to the history
-      'max_tokens': 1024, // INCREASED max_tokens for response
+      'model': modelName,
+      'messages': [systemMessage, ...apiMessages],
+      'tools': [formatExplanationTool],
+      'tool_choice': {"type": "function", "function": {"name": "format_explanation_with_concepts"}},
+      'max_tokens': 1024, 
       'temperature': 0.7,
     });
 
     try {
-      final response = await http.post(url, headers: headers, body: body).timeout(const Duration(seconds: 45)); // Slightly longer timeout for chat
+      final response = await http.post(url, headers: headers, body: body).timeout(const Duration(seconds: 60)); // Increased timeout for potentially more complex processing
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        // print('[OpenAIService Raw Response]: ${response.body}'); // For debugging
+
         if (data['choices'] != null && data['choices'].isNotEmpty) {
-          final content = data['choices'][0]['message']?['content']?.trim();
-          if (content != null && content.isNotEmpty) {
-            return content;
-          } else {
-            throw Exception('Failed to extract chat response from API.');
+          final message = data['choices'][0]['message'];
+          if (message['tool_calls'] != null && message['tool_calls'].isNotEmpty) {
+            final toolCall = message['tool_calls'][0];
+            if (toolCall['type'] == 'function' && toolCall['function']['name'] == 'format_explanation_with_concepts') {
+              final argumentsJson = toolCall['function']['arguments'];
+              try {
+                final arguments = jsonDecode(argumentsJson);
+                return ExplanationResult.fromJson(arguments);
+              } catch (e) {
+                throw Exception('Failed to parse tool call arguments: $e. Arguments JSON: $argumentsJson');
+              }
+            } else {
+              throw Exception('Expected tool call to format_explanation_with_concepts, but received different tool or type.');
+            }
+          } else if (message['content'] != null) {
+            // Fallback or unexpected response: Model didn't use the tool and returned content directly.
+            String rawContent = message['content'].trim();
+            print("[OpenAIService DEBUG Raw Content for ${style.name} when tool not used]: $rawContent"); 
+            
+            print('[OpenAIService Warning]: Model did not use the specified tool. Returned content directly for style ${style.name}.');
+            
+            List<String> parsedConcepts = [];
+            String explanationText = rawContent;
+
+            // NEW Fallback: Look for explicit separator line
+            String separator = "RELATED_CONCEPTS_SEPARATOR:";
+            int separatorIndex = rawContent.lastIndexOf(separator);
+
+            if (separatorIndex != -1) {
+              explanationText = rawContent.substring(0, separatorIndex).trim();
+              String conceptsLine = rawContent.substring(separatorIndex + separator.length).trim();
+              if (conceptsLine.isNotEmpty) {
+                parsedConcepts = conceptsLine.split(',').map((c) => c.trim()).where((c) => c.isNotEmpty).toList();
+                // Further cleanup: if a concept ends with a period, remove it.
+                parsedConcepts = parsedConcepts.map((c) => c.endsWith('.') ? c.substring(0, c.length -1).trim() : c).toList();
+              }
+            } else {
+              // Original fallback (less likely to be hit now, but kept as a last resort)
+              String conceptsHeadingMarker = "Related Concepts";
+              int headingIndex = rawContent.toLowerCase().lastIndexOf(conceptsHeadingMarker.toLowerCase());
+              if (headingIndex != -1) {
+                explanationText = rawContent.substring(0, headingIndex).trim();
+                String conceptsBlock = rawContent.substring(headingIndex + conceptsHeadingMarker.length).trim();
+                List<String> lines = conceptsBlock.split('\n');
+                for (String line in lines) {
+                  String trimmedLine = line.trim();
+                  if (trimmedLine.startsWith('•') || trimmedLine.startsWith('-')) { // Check for bullet or hyphen
+                    String concept = trimmedLine.substring(1).trim(); 
+                    if (concept.endsWith('.')) {
+                      concept = concept.substring(0, concept.length - 1).trim();
+                    }
+                    if (concept.isNotEmpty) {
+                      parsedConcepts.add(concept);
+                    }
+                  }
+                }
+              }
+            }
+            
+            print('[OpenAIService Fallback Parsing]: Explanation: "$explanationText", Parsed Concepts: $parsedConcepts');
+            return ExplanationResult(explanation: explanationText, relatedConcepts: parsedConcepts);
+          }
+           else {
+            throw Exception('Failed to extract chat response or tool call from API.');
           }
         } else {
-          throw Exception('Invalid response format from API for chat.');
+          throw Exception('Invalid response format from API for chat (no choices).');
         }
       } else {
         String errorMessage = 'Failed to get chat response from OpenAI. Status code: ${response.statusCode}';

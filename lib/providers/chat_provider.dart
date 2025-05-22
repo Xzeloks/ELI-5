@@ -102,7 +102,7 @@ final chatSessionsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) as
 class ChatState {
   final List<ChatMessage> messages;
   final bool isAiResponding;
-  final bool isProcessingImage; // Added for OCR/Image processing state
+  final bool isProcessingInput; // CHANGED: Was isProcessingImage
   final String? errorMessage;
   final String? currentSessionId; // Added to store current session ID
   final SimplificationStyle selectedStyle; // ADDED: For selected simplification style
@@ -110,7 +110,7 @@ class ChatState {
   ChatState({
     this.messages = const [],
     this.isAiResponding = false,
-    this.isProcessingImage = false, // Default to false
+    this.isProcessingInput = false, // CHANGED: Was isProcessingImage, default to false
     this.errorMessage,
     this.currentSessionId,
     this.selectedStyle = SimplificationStyle.eli5, // ADDED: Default to ELI5
@@ -119,7 +119,7 @@ class ChatState {
   ChatState copyWith({
     List<ChatMessage>? messages,
     bool? isAiResponding,
-    bool? isProcessingImage, // Added
+    bool? isProcessingInput, // CHANGED: Was isProcessingImage
     String? errorMessage,
     bool clearErrorMessage = false,
     String? currentSessionId, // For updating session ID
@@ -129,7 +129,7 @@ class ChatState {
     return ChatState(
       messages: messages ?? this.messages,
       isAiResponding: isAiResponding ?? this.isAiResponding,
-      isProcessingImage: isProcessingImage ?? this.isProcessingImage, // Added
+      isProcessingInput: isProcessingInput ?? this.isProcessingInput, // CHANGED: Was isProcessingImage
       errorMessage: clearErrorMessage ? null : errorMessage ?? this.errorMessage,
       currentSessionId: clearCurrentSessionId ? null : currentSessionId ?? this.currentSessionId,
       selectedStyle: selectedStyle ?? this.selectedStyle, // ADDED assignment
@@ -145,18 +145,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   ChatNotifier(this._ref, this._openAIService, this._contentFetcherService, this._chatDbService) : super(ChatState());
 
-  // Method to explicitly set the image processing state
-  void setProcessingImageState(bool isProcessing) {
-    state = state.copyWith(isProcessingImage: isProcessing);
+  // Method to explicitly set the input processing state
+  void setProcessingInputState(bool isProcessing) { // CHANGED: Was setProcessingImageState
+    state = state.copyWith(isProcessingInput: isProcessing); // CHANGED: Was isProcessingImage
   }
 
   // New method to add a message directly to the UI for display
-  void addDisplayMessage(String text, ChatMessageSender sender) {
+  void addDisplayMessage(String text, ChatMessageSender sender, {InputType inputType = InputType.text}) { // ADDED inputType parameter
     final displayMessage = ChatMessage(
       id: Random().nextDouble().toString(), 
       text: text,
       sender: sender,
       timestamp: DateTime.now(),
+      inputType: inputType, // ADDED: Use passed inputType
     );
     state = state.copyWith(messages: [...state.messages, displayMessage]);
     // This message is for immediate UI feedback and is not saved to DB here.
@@ -167,141 +168,131 @@ class ChatNotifier extends StateNotifier<ChatState> {
     state = state.copyWith(selectedStyle: style);
   }
 
-  Future<void> sendMessageAndGetResponse(String rawInputText, {bool isFromOcr = false}) async {
-    if (rawInputText.isEmpty) return;
-
+  Future<void> sendMessageAndGetResponse(String text, {InputType inputType = InputType.text}) async { // CHANGED: Replaced boolean flags with InputType
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
-      state = state.copyWith(isAiResponding: false, errorMessage: "User not authenticated.");
-      final errorMsg = ChatMessage(id: "error_auth", text: "Error: You must be logged in to chat.", sender: ChatMessageSender.ai, timestamp: DateTime.now());
-      state = state.copyWith(messages: [...state.messages, errorMsg]);
+      state = state.copyWith(errorMessage: "User not authenticated. Please log in.");
       return;
     }
 
-    InputType determinedInputType = InputType.text; // Default
-    if (isFromOcr) {
-      determinedInputType = InputType.ocr;
-    } else if (_contentFetcherService.isYouTubeUrl(rawInputText) || _contentFetcherService.isValidUrl(rawInputText)) {
-      determinedInputType = InputType.url;
-    } else if (rawInputText.trim().endsWith('?')) {
-      determinedInputType = InputType.question;
+    String effectiveMessageContent = text;
+    String? userMessageDisplayOverride;
+    String placeholderPrefix = "";
+
+    // Determine placeholder prefix and display override based on inputType
+    switch (inputType) {
+      case InputType.ocr:
+      case InputType.image: // Consolidate image and ocr for display override
+        placeholderPrefix = "Scanned: ";
+        inputType = InputType.ocr; // Standardize to ocr if it was image for this path
+        break;
+      case InputType.url:
+        placeholderPrefix = "URL: ";
+        break;
+      case InputType.pdf:
+        placeholderPrefix = "PDF: ";
+        break;
+      case InputType.file:
+        placeholderPrefix = "File: ";
+        break;
+      case InputType.text:
+      case InputType.question: // Default, no prefix or special handling here for override
+      default:
+        placeholderPrefix = "";
+        break;
     }
 
-    ChatMessage userMessage = ChatMessage(
-        id: Random().nextDouble().toString(), 
-        text: rawInputText,
-        sender: ChatMessageSender.user,
-        timestamp: DateTime.now(),
-      inputType: determinedInputType, // Assign determined type
-      );
-
-    // Add user message to UI immediately only if it wasn't from OCR (which uses addDisplayMessage)
-    if (!isFromOcr) {
-      state = state.copyWith(messages: [...state.messages, userMessage], isAiResponding: true, clearErrorMessage: true);
-    } else {
-        state = state.copyWith(isAiResponding: true, clearErrorMessage: true); // Just set loading state
+    if (placeholderPrefix.isNotEmpty) {
+      userMessageDisplayOverride = "$placeholderPrefix${text.substring(0, min(text.length, 50))}${text.length > 50 ? '...' : ''}";
     }
-    
-    String? existingSessionId = state.currentSessionId; 
-    String activeSessionId;
-    bool isNewSession = existingSessionId == null; // Track if it's a new session
+
+    final userMessage = ChatMessage(
+      text: effectiveMessageContent, // Store full text for API
+      displayOverride: userMessageDisplayOverride, // Display override for UI
+      sender: ChatMessageSender.user,
+      timestamp: DateTime.now(),
+      inputType: inputType, // Use the determined/passed inputType
+    );
+
+    state = state.copyWith(messages: [...state.messages, userMessage], isAiResponding: true, isProcessingInput: false, errorMessage: null, clearErrorMessage: true); // Ensure isProcessingInput is false now
+    final currentSessionId = await _chatDbService.ensureChatSession(userId, existingSessionId: state.currentSessionId, initialMessageContent: effectiveMessageContent, inputType: inputType);
+    state = state.copyWith(currentSessionId: currentSessionId); // Update session ID in state
+    await _chatDbService.saveChatMessage(userMessage, currentSessionId, userId); // Save user message
+
+    // Prepare history for API, ensuring it's a list of ChatMessage objects
+    List<ChatMessage> historyForApi = List<ChatMessage>.from(state.messages);
+
+    String? contentToExplain = effectiveMessageContent; // Default to user's text
+
+    // If it's a URL, fetch its content before sending to OpenAI
+    if (inputType == InputType.url) { // CHANGED: Check inputType
+      try {
+        // Add a temporary "Fetching content..." message for the AI response slot
+        final tempFetchingMessage = ChatMessage(
+          text: "Fetching content from URL...",
+          sender: ChatMessageSender.ai,
+          timestamp: DateTime.now(),
+          displayOverride: "Fetching content from URL...",
+          isPlaceholderSummary: true, 
+        );
+        state = state.copyWith(messages: [...state.messages, tempFetchingMessage], isAiResponding: true);
+        
+        contentToExplain = await _contentFetcherService.fetchAndParseUrl(text);
+        effectiveMessageContent = contentToExplain ?? "Could not fetch content from URL."; // Update effective content
+
+        // Remove the temporary "Fetching content..." message
+        state = state.copyWith(
+          messages: state.messages.where((msg) => msg.id != tempFetchingMessage.id).toList(),
+        );
+
+        if (contentToExplain == null) {
+          final errorMessage = ChatMessage(
+            text: "Sorry, I couldn't fetch content from that URL. Please try another one.",
+            sender: ChatMessageSender.ai,
+            timestamp: DateTime.now(),
+          );
+          state = state.copyWith(messages: [...state.messages, errorMessage], isAiResponding: false);
+          await _chatDbService.saveChatMessage(errorMessage, currentSessionId, userId); // Save error message
+          return;
+        }
+      } catch (e) {
+        final errorMessage = ChatMessage(
+          text: "Error fetching URL content: ${e.toString()}",
+          sender: ChatMessageSender.ai,
+          timestamp: DateTime.now(),
+        );
+        state = state.copyWith(messages: [...state.messages, errorMessage], isAiResponding: false);
+        await _chatDbService.saveChatMessage(errorMessage, currentSessionId, userId); // Save error message
+        return;
+      }
+    }
 
     try {
-      String initialContentForTitle = rawInputText;
-      if (existingSessionId == null) {
-        const int titleMaxLength = 30;
-        String previewText = rawInputText.substring(0, min(rawInputText.length, titleMaxLength));
-        if (rawInputText.length > titleMaxLength) { previewText += "..."; }
-
-        switch(determinedInputType) {
-          case InputType.ocr: initialContentForTitle = "Scanned: $previewText"; break;
-          case InputType.url: initialContentForTitle = "URL: $previewText"; break;
-          case InputType.question: initialContentForTitle = "Question: $previewText"; break;
-          case InputType.text: initialContentForTitle = "Text: $previewText"; break;
-        }
-      }
-
-      activeSessionId = await _chatDbService.ensureChatSession(
-        userId,
-        existingSessionId: existingSessionId,
-        initialMessageContent: existingSessionId == null ? initialContentForTitle : null, 
-      );
-      if (state.currentSessionId != activeSessionId) {
-        state = state.copyWith(currentSessionId: activeSessionId);
-      }
-
-      // If a new session was created, invalidate the chatSessionsProvider
-      if (isNewSession) {
-        _ref.invalidate(chatSessionsProvider);
-      }
-
-      // Save the user message (with its inputType) to DB
-      // print("CHAT_PROVIDER: Attempting to save USER message..."); // DEBUG
-      await _chatDbService.saveChatMessage(userMessage, activeSessionId, userId);
-      // print("CHAT_PROVIDER: USER message save call completed."); // DEBUG
-
-      String contentForAI = rawInputText;
-      if (determinedInputType == InputType.url) {
-         if (_contentFetcherService.isYouTubeUrl(rawInputText)) {
-        // Simulating transcript fetch for structure - replace with actual call
-        final transcript = await _contentFetcherService.fetchYouTubeTranscript(rawInputText); 
-        // String transcript = \"Placeholder transcript content. Replace with actual fetch.\"; // REMOVE Placeholder
-        
-        // MODIFIED: Removed \"Please ELI5\"
-        contentForAI = "The user shared this YouTube video: $rawInputText\\n\\nThe following is its transcript:\\n\\n$transcript";
-         } else {
-        final webContent = await _contentFetcherService.fetchAndParseUrl(rawInputText);
-        // MODIFIED: Removed "Please ELI5"
-        contentForAI = "The user shared this webpage: $rawInputText\\n\\nThe following is content from the webpage:\\n\\n$webContent";
-         }
-      }
-      // If isFromOcr is true, contentForAI is already the extracted text.
-      // The system prompt in OpenAIService will guide the selected style.
-
-      // DEBUG: Print length of contentForAI if it was a URL, to monitor for very long inputs
-      if (determinedInputType == InputType.url) {
-        print("[ChatProvider] Length of contentForAI (URL content) before sending to OpenAI: ${contentForAI.length} characters.");
-      }
-
-      final aiResponseText = await _openAIService.getChatResponse(
-        state.messages, 
-        effectiveLastUserMessageContent: contentForAI,
-        style: state.selectedStyle, // UNCOMMENTED: Pass the selected style
+      // Use the effective content (original text or fetched from URL) for the AI
+      final ExplanationResult explanationResult = await _openAIService.getChatResponse(
+        historyForApi, 
+        effectiveLastUserMessageContent: contentToExplain, // Send the content to be explained
+        style: state.selectedStyle 
       );
 
+      // Create the AI message with the same inputType as the user's message
       final aiMessage = ChatMessage(
-        id: Random().nextDouble().toString(),
-        text: aiResponseText,
+        text: explanationResult.explanation,
         sender: ChatMessageSender.ai,
         timestamp: DateTime.now(),
-        isPlaceholderSummary: isFromOcr, // Only AI response to OCR needs placeholder
-        inputType: determinedInputType, // AI message inherits inputType from user message
+        relatedConcepts: explanationResult.relatedConcepts,
+        inputType: userMessage.inputType, // Mirror user's input type
       );
-      // Add AI message to state immediately *before* saving
-      state = state.copyWith(messages: [...state.messages, aiMessage], isAiResponding: false);
-
-      // Save AI message
-      // print("CHAT_PROVIDER: Attempting to save AI message..."); // DEBUG
-      await _chatDbService.saveChatMessage(aiMessage, activeSessionId, userId);
-      // print("CHAT_PROVIDER: AI message save call completed."); // DEBUG
-
+      state = state.copyWith(messages: [...state.messages, aiMessage], isAiResponding: false, isProcessingInput: false);
+      await _chatDbService.saveChatMessage(aiMessage, currentSessionId, userId); // Save AI message
     } catch (e) {
-      // print("CHAT_PROVIDER: ERROR in sendMessageAndGetResponse: $e"); // DEBUG Error
-      final errorMessageText = "Error: ${e.toString().replaceFirst('Exception: ', '')}";
-      final errorAiMessage = ChatMessage(
-        id: Random().nextDouble().toString(),
-        text: errorMessageText,
-        sender: ChatMessageSender.ai, 
+      final errorMessage = ChatMessage(
+        text: "Sorry, I couldn't get a response: ${e.toString()}",
+        sender: ChatMessageSender.ai,
         timestamp: DateTime.now(),
       );
-      // Ensure error message is added to state even if AI save fails
-      // Check if the error message is already the last one to avoid duplicates
-      if (state.messages.isEmpty || state.messages.last.id != errorAiMessage.id) {
-      state = state.copyWith(messages: [...state.messages, errorAiMessage], isAiResponding: false, errorMessage: errorMessageText);
-      } else {
-         // Already have the error message, just ensure loading state is false
-          state = state.copyWith(isAiResponding: false, errorMessage: errorMessageText);
-      }
+      state = state.copyWith(messages: [...state.messages, errorMessage], isAiResponding: false, errorMessage: e.toString());
+      await _chatDbService.saveChatMessage(errorMessage, currentSessionId, userId); // Save error message
     }
   }
 
@@ -379,6 +370,74 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   Future<void> deleteSession(String sessionId) async {
     // Implementation of deleteSession method
+  }
+
+  Future<void> recordExplanationFeedback(String messageId, int rating) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      print("Cannot record feedback: User not authenticated.");
+      // Optionally, update state with an error message for the UI if needed
+      // state = state.copyWith(errorMessage: "You must be logged in to rate explanations.");
+      return;
+    }
+    try {
+      await _chatDbService.saveExplanationFeedback(messageId, userId, rating);
+      print("Feedback recorded for message $messageId: rating $rating");
+
+      // Update the userRating for the specific message in the state
+      final updatedMessages = state.messages.map((msg) {
+        if (msg.id == messageId) {
+          // Create a new ChatMessage instance with the updated rating
+          // This is important for immutability and to trigger UI updates.
+          return ChatMessage(
+            id: msg.id,
+            text: msg.text,
+            sender: msg.sender,
+            timestamp: msg.timestamp,
+            isPlaceholderSummary: msg.isPlaceholderSummary,
+            displayOverride: msg.displayOverride,
+            inputType: msg.inputType,
+            userRating: msg.userRating == rating ? null : rating, // Toggle: if same rating, clear, else set new rating
+          );
+        }
+        return msg;
+      }).toList();
+
+      // DEBUG: Confirm the rating is updated in the new message list
+      try {
+        final msgToLog = updatedMessages.firstWhere((m) => m.id == messageId);
+        print("[ChatNotifier] Message ${msgToLog.id} userRating after update: ${msgToLog.userRating}");
+      } catch (e) {
+        print("[ChatNotifier] Debug: Message with id $messageId not found in updatedMessages for logging.");
+      }
+
+      state = state.copyWith(messages: updatedMessages);
+
+      // Optionally, update the UI to reflect that feedback has been given for this message
+      // This might involve adding a property to ChatMessage model and updating state
+    } catch (e) {
+      print("Error recording feedback: $e");
+      // Optionally, update state with an error message
+      // state = state.copyWith(errorMessage: "Failed to record feedback: ${e.toString()}");
+    }
+  }
+
+  Future<void> recordExplanationReport(String messageId, String category, String? comment) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      print("Cannot record report: User not authenticated.");
+      // Optionally, update state with an error message for the UI if needed
+      return;
+    }
+    try {
+      await _chatDbService.saveExplanationReport(messageId, userId, category, comment);
+      print("Report recorded for message $messageId: category '$category'");
+      // Optionally, update UI to indicate message has been reported (e.g., disable report button or show confirmation)
+      // For now, we mostly rely on a Snackbar or dialog closing to give feedback.
+    } catch (e) {
+      print("Error recording report: $e");
+      // Optionally, update state with an error message
+    }
   }
 
   // Method to start a new chat (clears current session and messages)

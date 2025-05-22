@@ -7,7 +7,13 @@ final supabase = Supabase.instance.client;
 class ChatDbService {
   // Ensures a chat session exists. If existingSessionId is provided and valid, returns it.
   // Otherwise, creates a new session for the given userId and returns its ID.
-  Future<String> ensureChatSession(String userId, {String? existingSessionId, String? initialMessageContent}) async {
+  Future<String> ensureChatSession(
+    String userId, {
+    String? existingSessionId, 
+    String? initialMessageContent,
+    InputType inputType = InputType.text,
+    String? fileName,
+  }) async {
     if (existingSessionId != null) {
       // Optionally, verify if the session ID exists and belongs to the user if needed
       // For now, we assume if an ID is passed, it's valid for the current context.
@@ -17,14 +23,44 @@ class ChatDbService {
     // Create a new session
     String title = "New Chat";
     if (initialMessageContent != null && initialMessageContent.isNotEmpty) {
-      title = initialMessageContent.substring(0, min(initialMessageContent.length, 50));
-      if (initialMessageContent.length > 50) title += "...";
+      String baseContent = initialMessageContent.substring(0, min(initialMessageContent.length, 50));
+      if (initialMessageContent.length > 50) baseContent += "...";
+
+      switch (inputType) {
+        case InputType.ocr:
+        case InputType.image:
+          title = "Scanned: $baseContent";
+          break;
+        case InputType.url:
+           try {
+            Uri uri = Uri.parse(initialMessageContent); // Use full content for URI parsing
+            title = "URL: ${uri.host}";
+          } catch (_) {
+            title = "URL: $baseContent"; // Fallback if URI parsing fails
+          }
+          break;
+        case InputType.pdf:
+          title = "PDF: ${fileName ?? baseContent}";
+          break;
+        case InputType.file: // .txt files
+          title = "File: ${fileName ?? baseContent}";
+          break;
+        case InputType.text:
+        case InputType.question:
+        default:
+          title = baseContent;
+          break;
+      }
     }
 
     try {
       final response = await supabase
           .from('chat_sessions')
-          .insert({'user_id': userId, 'title': title})
+          .insert({
+            'user_id': userId, 
+            'title': title,
+            'initial_input_type': inputType.name,
+          })
           .select('id') // Select the id of the newly inserted row
           .single();    // Expect a single row back
       
@@ -52,7 +88,7 @@ class ChatDbService {
     try {
       final response = await supabase
           .from('chat_sessions')
-          .select('id, title, created_at, updated_at, is_starred') // Added is_starred
+          .select('id, title, created_at, updated_at, is_starred, initial_input_type')
           .eq('user_id', userId)
           .order('updated_at', ascending: false);
       
@@ -70,7 +106,7 @@ class ChatDbService {
       final response = await supabase
           .from('chat_messages')
           // Select all the fields needed by ChatMessage model
-          .select('id, content, sender, timestamp, is_placeholder_summary, input_type') 
+          .select('id, content, sender, timestamp, is_placeholder_summary, input_type, related_concepts')
           .eq('session_id', sessionId)
           .order('timestamp', ascending: true); 
       
@@ -183,6 +219,87 @@ class ChatDbService {
     } catch (e) {
       // print("Error updating starred status for multiple sessions: $e"); // For debugging
       throw Exception("Failed to update starred status for multiple sessions: ${e.toString()}");
+    }
+  }
+
+  // Saves feedback for an explanation
+  Future<void> saveExplanationFeedback(String messageId, String userId, int rating) async {
+    if (userId.isEmpty) {
+      throw Exception("User not authenticated to save feedback.");
+    }
+    try {
+      // Upsert the rating. If a report exists, it will be preserved.
+      // If no entry exists, a new one is created with the rating.
+      // If an entry exists, its rating is updated.
+      await supabase.from('explanation_feedback').upsert(
+        {
+          'message_id': messageId,
+          'user_id': userId,
+          'rating': rating,
+          // 'created_at' will be set on insert, and preserved on update by default with upsert
+          // unless explicitly part of the upserted data for change.
+        },
+        onConflict: 'message_id, user_id', // Specify conflict target for Supabase
+      );
+    } catch (e) {
+      // print("Error saving explanation feedback: $e");
+      throw Exception("Failed to save explanation feedback: ${e.toString()}");
+    }
+  }
+
+  // Saves or updates a report for an explanation
+  Future<void> saveExplanationReport(String messageId, String userId, String category, String? comment) async {
+    if (userId.isEmpty) {
+      throw Exception("User not authenticated to save report.");
+    }
+    try {
+      // Prepare the data for upserting the report details.
+      // We want to set or update the report_category and report_comment.
+      // If a rating already exists, it should be preserved if not explicitly changed here.
+      // If no rating exists, it should remain null unless this interaction also sets it.
+      // The `created_at` timestamp should ideally be set on the first interaction (rating or report)
+      // and preserved on subsequent updates to that feedback entry.
+
+      // First, fetch existing rating and timestamp if any, to preserve them.
+      final existingEntry = await supabase
+          .from('explanation_feedback')
+          .select('rating, created_at')
+          .eq('message_id', messageId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      final Map<String, dynamic> dataToUpsert = {
+        'message_id': messageId,
+        'user_id': userId,
+        'report_category': category,
+        'report_comment': comment,
+      };
+
+      if (existingEntry != null) {
+        // If entry exists, preserve its original rating unless this upsert is meant to change it (it's not here).
+        if (existingEntry['rating'] != null) {
+          dataToUpsert['rating'] = existingEntry['rating'];
+        }
+        // Preserve original creation timestamp.
+        if (existingEntry['created_at'] != null) {
+         dataToUpsert['created_at'] = existingEntry['created_at'];
+        } else {
+          // If for some reason created_at was null but entry existed, set it now.
+          dataToUpsert['created_at'] = DateTime.now().toIso8601String();
+        }
+      } else {
+        // New entry, set created_at. Rating will be null unless explicitly added.
+        dataToUpsert['created_at'] = DateTime.now().toIso8601String();
+      }
+      
+      await supabase.from('explanation_feedback').upsert(
+        dataToUpsert,
+        onConflict: 'message_id, user_id',
+      );
+
+    } catch (e) {
+      // print("Error saving explanation report: $e");
+      throw Exception("Failed to save explanation report: ${e.toString()}");
     }
   }
 

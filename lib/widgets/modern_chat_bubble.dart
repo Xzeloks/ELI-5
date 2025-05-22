@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:eli5/main.dart'; // Import AppColors
+import 'package:flutter_markdown/flutter_markdown.dart'; // ADDED for Markdown rendering
 
 // Custom Clipper for the chat bubble tail
 class BubbleTailClipper extends CustomClipper<Path> {
@@ -43,6 +44,11 @@ class ModernChatBubble extends StatelessWidget {
   final TextStyle? messageStyle;
   final TextStyle? timeStyle;
   final double maxWidthFactor; // Factor of screen width for max bubble width
+  final bool isAIMessage; // New parameter for AI message disclaimer
+  final VoidCallback? onThumbUp; // Callback for thumbs up
+  final VoidCallback? onThumbDown; // Callback for thumbs down
+  final int? userRating; // Added: 1 for up, -1 for down, null for no rating
+  final VoidCallback? onReport; // Callback for reporting an explanation
 
   const ModernChatBubble({
     super.key,
@@ -56,6 +62,11 @@ class ModernChatBubble extends StatelessWidget {
     this.messageStyle,
     this.timeStyle,
     this.maxWidthFactor = 0.75, // Bubble will take max 75% of screen width
+    this.isAIMessage = false, // Default to false
+    this.onThumbUp,
+    this.onThumbDown,
+    this.userRating,
+    this.onReport,
   });
 
   @override
@@ -119,16 +130,31 @@ class ModernChatBubble extends StatelessWidget {
         crossAxisAlignment: isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min, // Important for Column to wrap content
         children: [
-          Text(
-            message,
-            style: messageFinalStyle,
-            textAlign: TextAlign.left, // Text inside bubble should be left aligned
+          MarkdownBody(
+            data: message,
+            styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+              p: messageFinalStyle, // Apply existing message style to paragraphs
+              // You might want to define other styles here, e.g., for H1, H2, lists, etc.
+              // Example: h1: theme.textTheme.headlineSmall?.copyWith(color: messageFinalStyle.color)
+            ),
+            // selectable: true, // Optional: if you want the text to be selectable
           ),
           if (time != null && time!.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
               time!,
               style: timeFinalStyle,
+            ),
+          ],
+          if (isAIMessage) ...[
+            const SizedBox(height: 8), // Adjusted spacing if buttons are present
+            Text(
+              "ELI5 Bot is AI-powered. Explanations are simplified and may not cover all nuances. Please verify critical information.",
+              style: TextStyle(
+                color: (textColor ?? (isSender ? Colors.white : theme.colorScheme.onSecondaryContainer)).withOpacity(0.6),
+                fontSize: 10,
+              ),
+              textAlign: TextAlign.left,
             ),
           ],
         ],

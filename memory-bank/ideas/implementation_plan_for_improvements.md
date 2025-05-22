@@ -46,6 +46,7 @@ This document outlines the plan for implementing high-impact and feasible improv
 ### 2.1. Audio Narration for Explanations (Engaging User Experience)
 
 *   **Task:** Implement Text-to-Speech (TTS) for AI explanations.
+    *   **Status:** Implemented (Details in `improvement_progress.md`)
     *   **UI:** Add a "speaker" icon button to AI message bubbles. Tapping it reads the explanation aloud. A second tap could stop/pause.
     *   **Package:** Utilize a Flutter TTS package (e.g., `flutter_tts`).
     *   **State Management:** Manage TTS state (playing, stopped) likely within the `ChatMessageBubble` or its controller.
@@ -66,7 +67,6 @@ This document outlines the plan for implementing high-impact and feasible improv
 
 ## Future Considerations (Post Phase 1 & 2)
 
-*   **Gamified Feedback:** (e.g., highlighting parts of text).
 *   **Visual Summaries / Related Concepts:** (Requires significant AI/Content work).
 *   **Document Upload (PDF/Text):** (Requires file handling and backend processing).
 *   **Systematic analysis of collected feedback** to iteratively refine AI prompts in `OpenAIService`.

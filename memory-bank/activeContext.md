@@ -34,7 +34,9 @@ The recent development cycle focused on significant UI polish and bug fixing acr
 *   Overhauled back button navigation for a more intuitive user experience.
 
 **Current Focus:**
-*   The primary development task is **Finalizing the UI for the Settings Page (`lib/screens/settings_screen.dart`)**. This includes reviewing existing elements and implementing any necessary additions or refinements (e.g., links for support, legal information, app version).
+*   **Feature Implementation (Phase 2):** Implementing Text-to-Speech (TTS) for AI explanations.
+    *   **Status:** OpenAI TTS via Supabase Edge Function (`openai-tts-proxy`) is now functional both locally and deployed to Supabase Cloud. The Flutter app integrates with the deployed function.
+*   **Next Immediate Task:** Begin implementation of "Enhanced Content Sharing" (Task 2.2 from `implementation_plan_for_improvements.md`), starting with "Copy Text" functionality.
 
 **Next Steps (General):**
 1.  Complete UI development for the Settings page.

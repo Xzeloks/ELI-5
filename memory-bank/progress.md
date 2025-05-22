@@ -514,3 +514,11 @@ Based on tester feedback regarding generic chatbot responses, the following impr
     *   Provided the user with a detailed prompt they can use to have an external AI generate a comprehensive description of the ELI5 app, covering its concept, features, and tech stack.
     *   Subsequently, upon user clarification, provided an AI-to-AI prompt, demonstrating how I (as an AI) would instruct another AI to generate the app description.
     *   Finally, provided an "honest description" of the app from my AI perspective, focusing on a balanced assessment of its features, strengths, and underlying mechanisms, suitable for internal review or market research insight.
+
+*   **UI Feedback:** Added visual feedback for thumbs-up/down selection and button placement adjustments.
+*   **Report Feature:** Implemented the "Report Explanation" feature with a dialog and Supabase integration.
+*   **Text-to-Speech (TTS):** Successfully implemented TTS for AI explanations using OpenAI TTS via a secure Supabase Edge Function (`openai-tts-proxy`). This involved extensive local setup, debugging, and deployment to Supabase Cloud.
+
+### Next Steps
+
+*   Continue with Phase 2 improvements: Enhanced Content Sharing (Copy Text, Social Sharing).
